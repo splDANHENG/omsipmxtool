@@ -38,26 +38,39 @@ def leg_deform_bones(model, role):
             if norm(bone.name) in names or norm(bone.english) in names]
 
 
+def identify_role(model, role, overrides):
+    """Resolve one role for conversion and the mapping editor."""
+    aliases = ALIASES[role]
+    if role in overrides:
+        wanted = overrides[role]
+        if not isinstance(wanted, str):
+            raise ConversionError('Bone mapping values must be exact bone names')
+        hits = [i for i, b in enumerate(model.bones) if wanted in (b.name, b.english)]
+    else:
+        names = {norm(n) for n in aliases}
+        hits = [i for i, b in enumerate(model.bones)
+                if norm(b.name) in names or norm(b.english) in names]
+        if not hits:
+            hits = leg_deform_bones(model, role)
+    if len(hits) != 1:
+        raise ConversionError(f'{role}: expected one bone, found {len(hits)}. Use --mapping JSON; inspect lists names.')
+    # Prefer the deformation pivot when the ordinary leg control is offset.
+    # Explicit user mappings still take precedence and are checked in prepare.
+    if role not in overrides:
+        deform = leg_deform_bones(model, role)
+        if len(deform) == 1 and length(sub(model.bones[deform[0]].position,
+                                           model.bones[hits[0]].position)) > 1e-4:
+            hits = deform
+    return hits[0]
+
+
 def identify(model, overrides):
     unknown = set(overrides) - set(ALIASES)
     if unknown:
         raise ConversionError('Unknown mapping roles: ' + ', '.join(sorted(unknown)))
     result = {}
-    for role, aliases in ALIASES.items():
-        if role in overrides:
-            wanted = overrides[role]
-            if not isinstance(wanted, str):
-                raise ConversionError('Bone mapping values must be exact bone names')
-            hits = [i for i, b in enumerate(model.bones) if wanted in (b.name, b.english)]
-        else:
-            names = {norm(n) for n in aliases}
-            hits = [i for i, b in enumerate(model.bones)
-                    if norm(b.name) in names or norm(b.english) in names]
-            if not hits:
-                hits = leg_deform_bones(model, role)
-        if len(hits) != 1:
-            raise ConversionError(f'{role}: expected one bone, found {len(hits)}. Use --mapping JSON; inspect lists names.')
-        result[role] = hits[0]
+    for role in ALIASES:
+        result[role] = identify_role(model, role, overrides)
     if len(set(result.values())) != len(result):
         raise ConversionError('Each required joint must refer to a different bone')
     return result

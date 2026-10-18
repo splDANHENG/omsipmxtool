@@ -12,7 +12,24 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
-**Windows download: [v0.2.0 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.2.0)**. Download `omsipmxtool-0.2.0-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+**Windows download: [v0.3.0 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.0)**. Download `omsipmxtool-0.3.0-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+
+## Changelog
+
+### v0.3.0 · 2026-10-19
+
+- **Added:** visual bone mapping with name search, JSON import/export, automatic reset and direct application to conversion.
+- **Added:** untextured model preview with rotation, zoom, pan and bone highlighting. Pick a bone to assign it to a target role; overlapping bones have a candidate selector.
+- **Fixed:** automatically select a unique D leg counterpart when its rest position differs from the ordinary leg bone. Explicit mappings retain precedence.
+- **Fixed:** scrolling over mapping dropdowns no longer changes their selection. Switching PMX files clears the current mapping.
+- **UI:** explain the tool's supported binding roles and manual mapping steps.
+- **Validation:** 62 automated tests passed, covering picking, overlapping bones, camera interaction and exported mappings.
+- **Limitations:** no textures, animation or physics in the preview; in-game results still require model- and vehicle-specific checks.
+
+### v0.2.0 · 2026-10-18
+
+- Released the Windows x64 experimental package with no separate Python installation required.
+- Provided corresponding application/dependency sources, license notices and SHA-256 checksums.
 
 ## Features
 
@@ -63,6 +80,9 @@ Choose **选择 PMX** (Select PMX), read its embedded comments if present, and r
 - **角色标识** (Character identifier): derived from the filename. For example, `饮月君 1708.pmx` becomes `yinyuejun_1708`. You can correct names or ambiguous Chinese pronunciations manually.
 - **模型总高度** (Full model height): estimated from mesh bounds, including hair and accessories. It is not necessarily the character's stated height. Estimates outside 0.5–3 metres stop automatic conversion; disable automatic estimation and enter a value manually.
 - **骨骼映射** (Bone mapping): normally leave blank. If joints cannot be identified uniquely, use **检查模型与骨骼** (Inspect model and bones) and supply a JSON mapping with exact bone names.
+  When an ordinary leg bone and its unique D deformation counterpart have different rest positions, the D bone is selected automatically. Explicit mappings still take precedence.
+  Use **图形化编辑** (Visual editor) to view automatic matches, search bone names, and apply selections directly to conversion. The editor can load/save JSON and reset all roles to automatic. Switching PMX files clears the current mapping.
+  The left pane previews the untextured mesh and skeleton. Drag with the left button to rotate, scroll to zoom, and drag with the right button to pan. Click a role button to highlight its mapping, or pick a bone and assign it to the selected target role. Overlapping bones appear in a candidate list. Yellow marks the selected bone; orange marks D leg bones. Lines represent parent connections. The preview does not simulate animation or physics and never modifies the source PMX.
 - **统一导出目录** (Export directory): generated automatically. Existing names receive `_2`, `_3`, and so on.
 
 Inspection results and errors appear below the controls. Do not map several required joints to the same bone merely to bypass an error.

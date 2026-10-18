@@ -2,6 +2,7 @@
 # Copyright (c) 2026 omsipmxtool contributors
 """Package a built Windows folder plus verified sources and original notices."""
 import hashlib
+import argparse
 import importlib.metadata
 import json
 import platform
@@ -12,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 
 
 def digest(path):
@@ -23,7 +24,11 @@ def main():
     from PIL import features
     from PySide6.QtCore import QLibraryInfo
     import ssl
-    bundle = ROOT/'dist/omsipmxtool'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--bundle', type=Path, default=ROOT/'dist/omsipmxtool')
+    bundle = parser.parse_args().bundle.resolve()
+    if not bundle.is_relative_to((ROOT/'dist').resolve()):
+        raise ValueError('Bundle must be inside the project dist directory')
     if not (bundle/'omsipmxtool.exe').is_file():
         raise RuntimeError('Build the Windows application first')
     output = ROOT/'dist/release'

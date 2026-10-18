@@ -125,6 +125,140 @@ class GuiTests(unittest.TestCase):
         self.assertIn('请先选择', w.status.text())
         self.assertFalse(w.busy); w.close()
 
+    def test_mapping_editor_validation_save_and_load(self):
+        import json
+        from omsimod.mapping_editor import MappingEditor
+        from omsimod.pmx import load
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'model.pmx'; source.write_bytes(fixture())
+            model = load(source)
+            model.bones[1].name = 'custom torso'
+            dialog = MappingEditor(model)
+            dialog.apply()
+            self.assertIn('请修正', dialog.message.text())
+            combo = dialog.combos['torso']
+            combo.setCurrentIndex(combo.findData('custom torso'))
+            self.assertEqual(dialog.mapping(), {'torso': 'custom torso'})
+            path = Path(temp)/'mapping.json'
+            with patch('omsimod.mapping_editor.QFileDialog.getSaveFileName', return_value=(str(path), '')):
+                dialog.save_file()
+            self.assertEqual(json.loads(path.read_text()), {'torso': 'custom torso'})
+            dialog.set_mapping({})
+            with patch('omsimod.mapping_editor.QFileDialog.getOpenFileName', return_value=(str(path), '')):
+                dialog.load_file()
+            self.assertEqual(dialog.mapping(), {'torso': 'custom torso'})
+            dialog.set_mapping({'torso': 'missing bone'})
+            dialog.apply(); self.assertIn('请修正', dialog.message.text())
+            dialog.set_mapping({'torso': 'head'})
+            dialog.apply(); self.assertIn('different bone', dialog.message.text())
+            dialog.set_mapping({'torso': 'custom torso'})
+            combo.setEditText('unfinished search')
+            dialog.apply(); self.assertIn('下拉列表', dialog.message.text())
+            dialog.set_mapping({'torso': 'custom torso'})
+            dialog.apply()
+            self.assertEqual(dialog.result(), dialog.DialogCode.Accepted)
+            dialog.close()
+
+    def test_bone_combo_wheel_does_not_change_mapping(self):
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+        from omsimod.mapping_editor import BoneComboBox
+        combo = BoneComboBox(); combo.setEditable(True)
+        combo.addItems(['自动识别', '左足', '左足D'])
+        combo.setCurrentIndex(1)
+        combo.show(); combo.setFocus(); self.app.processEvents()
+        for delta in (-120, 120):
+            event = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(), QPoint(0, delta),
+                                Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+                                Qt.ScrollPhase.NoScrollPhase, False)
+            QApplication.sendEvent(combo, event)
+            self.assertEqual(combo.currentIndex(), 1)
+            self.assertFalse(event.isAccepted())
+        combo.close()
+
+    def test_preview_click_highlight_and_mapping_export(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from omsimod.mapping_editor import MappingEditor
+        from omsimod.pmx import load, Bone
+        from omsimod.export import convert
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'model.pmx'; source.write_bytes(fixture())
+            model = load(source)
+            model.bones.append(Bone('左足D', '', model.bones[4].position, 0))
+            dialog = MappingEditor(model); dialog.show(); self.app.processEvents()
+            dialog.show_role('left_thigh')
+            self.assertEqual(dialog.preview.selected, 4)
+            point = dialog.preview.projected(dialog.preview.bones)[4][0]
+            QTest.mouseClick(dialog.preview, Qt.MouseButton.LeftButton, pos=point.toPoint())
+            self.assertEqual(dialog.candidates.count(), 2)
+            dialog.candidates.setCurrentIndex(dialog.candidates.findData(15))
+            self.assertEqual(dialog.preview.selected, 15)
+            # Picking only previews; mapping changes after the explicit button.
+            self.assertEqual(dialog.mapping(), {})
+            dialog.assign_button.click()
+            self.assertEqual(dialog.mapping()['left_thigh'], '左足D')
+            report = convert(model, source, Path(temp)/'export', 'Preview', 1.75, dialog.mapping())
+            self.assertEqual(report['joints']['left_thigh'], '左足D')
+            self.assertIsNotNone(dialog.preview.mesh_cache)
+            dialog.set_mapping({}); self.assertEqual(dialog.preview.selected, 4)
+            dialog.close()
+
+    def test_preview_camera_and_empty_selection_do_not_change_mapping(self):
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+        from PySide6.QtTest import QTest
+        from omsimod.mapping_editor import MappingEditor
+        from omsimod.pmx import load
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'model.pmx'; source.write_bytes(fixture())
+            dialog = MappingEditor(load(source)); dialog.show(); self.app.processEvents()
+            preview = dialog.preview
+            before = preview.projected(preview.bones)[4][0]
+            QTest.mousePress(preview, Qt.MouseButton.LeftButton, pos=QPoint(100, 100))
+            QTest.mouseMove(preview, QPoint(160, 120))
+            QTest.mouseRelease(preview, Qt.MouseButton.LeftButton, pos=QPoint(160, 120))
+            self.assertNotEqual(preview.yaw, 0)
+            self.assertNotEqual(before, preview.projected(preview.bones)[4][0])
+            event = QWheelEvent(QPointF(100, 100), QPointF(100, 100), QPoint(), QPoint(0, 120),
+                                Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier,
+                                Qt.ScrollPhase.NoScrollPhase, False)
+            QApplication.sendEvent(preview, event)
+            self.assertGreater(preview.zoom, 1)
+            self.assertEqual(dialog.mapping(), {})
+            preview.reset_view(); self.assertEqual(preview.zoom, 1)
+            self.assertEqual(preview.yaw, 0)
+            QTest.mouseClick(preview, Qt.MouseButton.LeftButton, pos=QPoint(2, 2))
+            self.assertFalse(dialog.assign_button.isEnabled())
+            self.assertIsNone(preview.selected)
+            dialog.close()
+
+    def test_mapping_editor_applies_to_conversion_and_resets_on_source_change(self):
+        import json
+        from omsimod.mapping_editor import MappingEditor
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp); source = base/'model.pmx'
+            source.write_bytes(fixture())
+            game = base/'game'; (game/'maps').mkdir(parents=True); (game/'Vehicles').mkdir()
+            w = Window(); w.source.setText(str(source)); w.game_root.setText(str(game))
+            w.auto_height.setChecked(False); w.auto_install.setChecked(False)
+            def choose(dialog):
+                dialog.set_mapping({'torso': 'chest'})
+                dialog.apply()
+                return dialog.result()
+            with patch.object(MappingEditor, 'exec', choose):
+                w.mapping_button.click(); self.wait(w)
+            self.assertEqual(w.current_mapping(), {'torso': 'chest'})
+            w.convert_button.click(); self.wait(w)
+            report = json.loads((w.last_output/'conversion-report.json').read_text(encoding='utf-8'))
+            self.assertEqual(report['joints']['torso'], 'chest')
+            with patch.object(MappingEditor, 'exec', return_value=MappingEditor.DialogCode.Rejected):
+                w.mapping_button.click(); self.wait(w)
+            self.assertEqual(w.current_mapping(), {'torso': 'chest'})
+            w.source.setText(str(base/'other.pmx'))
+            self.assertIsNone(w.current_mapping())
+            w.close()
+
     def test_selection_survives_catalogue_reload_from_other_window(self):
         from omsimod.library import Library
         w=Window();lib=w.manager.library

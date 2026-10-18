@@ -5,14 +5,20 @@ import subprocess
 import shutil
 import os
 import sys
+import argparse
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser()
+parser.add_argument('--dist-dir', type=Path, default=root/'dist')
+dist = parser.parse_args().dist_dir.resolve()
+if not dist.is_relative_to((root/'dist').resolve()):
+    raise ValueError('Build output must stay inside the project dist directory')
 if (root/'MODEL-RIGHTS.txt').read_bytes() != (root/'omsimod'/'MODEL-RIGHTS.txt').read_bytes():
     raise RuntimeError('请同步根目录和 omsimod 内的 MODEL-RIGHTS.txt 后再打包')
 args = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
         '--windowed', '--name', 'omsipmxtool', '--paths', str(root),
-        '--distpath', str(root/'dist'), '--workpath', str(root/'build'),
+        '--distpath', str(dist), '--workpath', str(root/'build'),
         '--specpath', str(root/'build'), '--collect-data', 'pypinyin',
         '--add-data', str(root/'omsimod'/'MODEL-RIGHTS.txt')+os.pathsep+'omsimod',
         '--add-data', str(root/'LICENSES'/'pypinyin-0.55.0.txt')+os.pathsep+'LICENSES']
@@ -34,10 +40,10 @@ if sys.platform == 'win32':
 subprocess.run(args, cwd=root, env=env, check=True)
 if sys.platform == 'win32':
     # Widgets uses the Windows raster backend; no software OpenGL renderer is needed.
-    software_gl = root/'dist'/'omsipmxtool'/'_internal'/'PySide6'/'opengl32sw.dll'
+    software_gl = dist/'omsipmxtool'/'_internal'/'PySide6'/'opengl32sw.dll'
     software_gl.unlink(missing_ok=True)
-notice_dir = (root/'dist'/'omsipmxtool.app'/'Contents'/'Resources'
-              if sys.platform == 'darwin' else root/'dist'/'omsipmxtool')
+notice_dir = (dist/'omsipmxtool.app'/'Contents'/'Resources'
+              if sys.platform == 'darwin' else dist/'omsipmxtool')
 shutil.copy2(root/'MODEL-RIGHTS.txt', notice_dir/'MODEL-RIGHTS.txt')
 for name in ('LICENSE', 'THIRD-PARTY-NOTICES.txt', 'README.md', 'README.en.md',
              'BINARY-DISTRIBUTION.txt'):

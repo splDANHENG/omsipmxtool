@@ -63,7 +63,7 @@ def inspect_model(path):
 
 
 def convert_model(source, output, name, height, mapping):
-    overrides = json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {}
+    overrides = dict(mapping) if isinstance(mapping, dict) else (json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
     if not isinstance(overrides, dict):
         raise ValueError('骨骼映射必须是 JSON 对象。')
     model = load(source)
@@ -141,6 +141,7 @@ class Window(QMainWindow):
         self.last_output = None
         self.accepted_source = None
         self.review_open = False
+        self.edited_mapping = None
         from .manager import Manager
         self.manager = Manager()
         tabs = QTabWidget(); self.setCentralWidget(tabs)
@@ -170,7 +171,16 @@ class Window(QMainWindow):
             ('OMSI 目录', self.game_root, '选择目录', self.manager.pick_root)]:
             row = QHBoxLayout(); row.addWidget(edit,1)
             button = QPushButton(caption); button.clicked.connect(callback); row.addWidget(button)
+            if edit is self.mapping:
+                self.mapping_button = QPushButton('图形化编辑')
+                self.mapping_button.clicked.connect(self.edit_mapping)
+                row.addWidget(self.mapping_button)
             fields.addRow(label,row)
+        self.mapping_note = QLabel('留空时自动识别，也可点击“图形化编辑”逐项选择。')
+        self.mapping_note.setWordWrap(True)
+        self.mapping_note.setObjectName('muted')
+        fields.addRow('', self.mapping_note)
+        self.mapping.textChanged.connect(self.mapping_path_changed)
         fields.addRow('统一导出目录', self.output)
         row = QHBoxLayout()
         self.name = QLineEdit('CustomDriver'); self.name.setToolTip('从 PMX 文件名自动生成拼音标识，可手动修改；中文转拼音，英文和数字保留')
@@ -200,7 +210,7 @@ class Window(QMainWindow):
         self.log = QPlainTextEdit(); self.log.setReadOnly(True); self.log.setPlaceholderText('模型信息、骨骼列表和转换报告会显示在这里。'); page.addWidget(self.log,1)
         footer = QHBoxLayout()
         self.open_button = QPushButton('打开输出文件夹'); self.open_button.setEnabled(False); self.open_button.clicked.connect(self.open_output)
-        foot = QLabel('实验版 0.2 · 文件转换成功不代表游戏内验证通过'); foot.setObjectName('muted')
+        foot = QLabel('实验版 0.3 · 文件转换成功不代表游戏内验证通过'); foot.setObjectName('muted')
         footer.addWidget(foot,1); footer.addWidget(self.open_button); page.addLayout(footer)
         self.source.textChanged.connect(self.source_changed)
         self.source.editingFinished.connect(self.inspect_source_if_needed)
@@ -229,6 +239,8 @@ class Window(QMainWindow):
     def source_changed(self, text):
         self.accepted_source = None
         self.inspected_source = None
+        self.mapping.clear()
+        self.mapping_path_changed()
         self.name.setText(pinyin_name(Path(text).stem))
         self.height_note.setText('等待读取 PMX 高度；按完整网格 × 0.08 换算，包含头发和饰品。')
 
@@ -250,7 +262,49 @@ class Window(QMainWindow):
 
     def pick_mapping(self):
         path,_ = QFileDialog.getOpenFileName(self,'选择骨骼映射','','JSON (*.json)')
-        if path: self.mapping.setText(path)
+        if path:
+            self.mapping.setText(path)
+            self.mapping_path_changed()
+
+    def mapping_path_changed(self, *_):
+        self.edited_mapping = None
+        self.mapping_note.setText('使用所选 JSON 文件。' if self.mapping.text().strip() else
+                                  '留空时自动识别，也可点击“图形化编辑”逐项选择。')
+
+    def current_mapping(self):
+        if self.edited_mapping is not None:
+            return dict(self.edited_mapping)
+        return Path(self.mapping.text().strip()).expanduser() if self.mapping.text().strip() else None
+
+    def edit_mapping(self):
+        if self.busy or self.manager.busy: return
+        try:
+            source = self.source_path()
+            if not self.review_source(source): return
+            mapping = self.current_mapping()
+        except (ValueError, OSError) as exc:
+            self.failed(str(exc)); return
+        def read():
+            overrides = mapping if isinstance(mapping, dict) else (
+                json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
+            return load(source), overrides
+        self.start(read, self.mapping_loaded, '正在读取骨骼映射…')
+
+    def mapping_loaded(self, result):
+        from .mapping_editor import MappingEditor
+        self.finish()
+        try:
+            dialog = MappingEditor(result[0], result[1], self)
+            if dialog.exec() == dialog.DialogCode.Accepted:
+                self.mapping.clear()
+                self.edited_mapping = dialog.result_mapping
+                self.mapping_note.setText(f'已应用图形化映射：{len(self.edited_mapping)} 个手动指定，其余自动识别。')
+                self.status.setText('骨骼映射已更新，可生成人物包。')
+            else:
+                self.status.setText('已取消骨骼映射编辑，保留原设置。')
+            dialog.deleteLater()
+        except (ValueError, OSError) as exc:
+            self.failed(str(exc))
 
     def source_path(self):
         if not self.source.text().strip(): raise ValueError('请先选择 PMX 文件。')
@@ -338,7 +392,7 @@ class Window(QMainWindow):
             output = export_destination(root, name)
             self.output.setText(str(output))
             height = None if self.auto_height.isChecked() else self.height.value()
-            mapping = Path(self.mapping.text().strip()).expanduser() if self.mapping.text().strip() else None
+            mapping = self.current_mapping()
             game_root = root if self.auto_install.isChecked() else None
             self.manager.library.settings({'root': str(root)})
         except (ValueError, OSError) as exc: self.failed(str(exc)); return

@@ -136,6 +136,43 @@ class ConverterTests(unittest.TestCase):
         with self.assertRaisesRegex(ConversionError, 'different rest position'):
             prepare(model, joints, 1.75)
 
+    def test_offset_d_legs_are_automatically_selected_and_exported(self):
+        model, joints, indices = self.d_leg_model()
+        for role, index in zip(SLOTS[:4], indices[:4]):
+            x, y, z = model.bones[index].position
+            model.bones[index].position = (x, y + .02, z)
+        found = identify(model, {})
+        self.assertEqual([found[r] for r in SLOTS[:4]], indices[:4])
+        self.assertEqual(prepare(model, found, 1.75)[2],
+                         [{0:1.0},{1:1.0},{2:1.0},{3:1.0},{3:1.0},{3:1.0}])
+        output = self.root/'offset-d-legs'
+        report = convert(model, self.source, output, 'OffsetDLegs', 1.75, {})
+        self.assertEqual([report['joints'][r] for r in SLOTS[:4]],
+                         [model.bones[i].name for i in indices[:4]])
+        read_o3d(output/'Humans/OffsetDLegs/model/body_0000.o3d')
+
+    def test_offset_d_legs_respect_explicit_mapping(self):
+        model, joints, indices = self.d_leg_model()
+        model.bones[indices[0]].position = (-.1, .92, 0)
+        role = 'left_thigh'
+        found = identify(model, {role: model.bones[joints[role]].name})
+        self.assertEqual(found[role], joints[role])
+        with self.assertRaisesRegex(ConversionError, 'different rest position'):
+            prepare(model, found, 1.75)
+        found = identify(model, {role: '左足D'})
+        prepare(model, found, 1.75)
+
+    def test_coincident_d_legs_keep_original_selection(self):
+        model, joints, _ = self.d_leg_model()
+        self.assertEqual(identify(model, {}), joints)
+
+    def test_ambiguous_d_legs_still_fail(self):
+        model, _, indices = self.d_leg_model()
+        model.bones[indices[0]].position = (-.1, .92, 0)
+        model.bones.append(Bone('leftlegD', '', (-.1, .93, 0), 0))
+        with self.assertRaisesRegex(ConversionError, 'ambiguous D deformation bones'):
+            prepare(model, identify(model, {}), 1.75)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
