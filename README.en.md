@@ -217,6 +217,18 @@ Current OpenOMSI character-system and converter limitations make clothing, ribbo
 
 Such parts may obscure instruments or clip through the steering wheel, dashboard or body during driver movements. Close-fitting cuffs and fewer arm accessories generally make it easier to keep a clear driving view.
 
+## Future direction
+
+Current development prioritizes capabilities that **do not require modifying or recompiling OpenOMSI**, including model conversion, character-package management and compatibility diagnostics. Improvements remain within the game's existing resource formats and configuration mechanisms.
+
+**Features requiring modification and recompilation of OpenOMSI are outside the current development plan.** Each request will be evaluated against the target version's capabilities. Resource conversion and configuration cannot replace runtime features or guarantee fixes for problems caused by internal game behavior.
+
+If OpenOMSI reaches a version suitable for long-term use, with sufficiently stable interfaces and behavior, and sustained maintenance is feasible, the project may assess deeper extensions based on a specific stable version. Any distribution of modified builds requires prior review of applicable licenses, source-availability obligations and permissions for bundled assets.
+
+These statements describe research directions only. **They are not commitments to specific features, release dates or distribution of modified builds, and do not represent OpenOMSI's official development plans.**
+
+**Please direct feature suggestions and compatibility reports for this project to this repository first. Where upstream support is needed, maintainers will assess the technical requirements before communicating through normal collaboration channels as appropriate.**
+
 ## Running from source
 
 Python 3.10+ is required. Run these commands in the project directory:
@@ -288,6 +300,14 @@ Windows Releases include application source, dependency sources and SHA-256 chec
 ## Known issues and feedback
 
 ### OpenOMSI version compatibility
+
+This tool is built as a standalone Python/Qt application; its build does not compile or bundle the OpenOMSI executable. Development references and upstream release status are recorded separately (checked on 2026-10-18):
+
+- **Latest official non-prerelease:** [OpenOMSI v0.3.33](https://github.com/openOMSI-org/openOMSI/releases/tag/v0.3.33). This is an upstream release designation, not evidence of comprehensive compatibility testing with this tool or a long-term support commitment.
+- **Primary implementation reference:** [`1ca88e6bb6c5d70c9b690978a7e26a8ac5096710`](https://github.com/openOMSI-org/openOMSI/commit/1ca88e6bb6c5d70c9b690978a7e26a8ac5096710). See [third-party notices](THIRD-PARTY-NOTICES.txt) for reference and adaptation scope. This commit must not be conflated with the stable release above.
+- **Driver animation analysis reference:** [v0.3.37](https://github.com/openOMSI-org/openOMSI/releases/tag/v0.3.37) (`b5e4acc`), officially marked **Pre-release / Beta**, not a stable release.
+
+Available records do not establish a single OpenOMSI stable version with complete in-game validation for the Windows distribution. Consult the release notes and [release review](RELEASE-REVIEW.txt) for the actual test scope.
 
 OpenOMSI is under active development. Character loading, skeletons and animation behaviour may change. **Neither the converter nor existing converted packages are guaranteed to keep working after an OpenOMSI update.** Report new-version compatibility issues with the old/new versions and whether the same model previously worked.
 
