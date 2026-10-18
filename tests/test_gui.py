@@ -57,6 +57,37 @@ class GuiTests(unittest.TestCase):
             self.assertEqual(original,(output/'conversion-report.json').read_bytes())
             w.close()
 
+    def test_ai_help_preview_and_clipboard_are_sanitized(self):
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QDialog, QPlainTextEdit, QPushButton
+        w = Window()
+        w.help_operation = '检查模型'
+        w.failed("Missing texture: 'C:/Users/SecretPerson/private/model.png'")
+        observed = []
+        def copy_and_close():
+            dialog = self.app.activeModalWidget()
+            if isinstance(dialog, QDialog):
+                observed.append(dialog.findChild(QPlainTextEdit).toPlainText())
+                for button in dialog.findChildren(QPushButton):
+                    if button.text() == '一键复制': button.click()
+                dialog.accept()
+        QTimer.singleShot(0, copy_and_close)
+        w.help_button.click()
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(self.app.clipboard().text(), observed[0])
+        self.assertNotIn('SecretPerson', observed[0])
+        self.assertIn('Missing texture', observed[0])
+        w.source.setText('another.pmx')
+        self.assertEqual(w.help_error, '')
+        w.manager.record_error('Permission denied: D:/SecretPerson/game')
+        self.assertIn('Permission denied', w.manager.help_error)
+        w.manager.success_message = '完成'
+        w.manager.job_done('成功 1\n失败：地图A：文件占用')
+        self.assertIn('文件占用', w.manager.help_error)
+        w.manager.job_done('成功 2')
+        self.assertEqual(w.manager.help_error, '')
+        w.close()
+
     def test_auto_install_and_apply_all_then_restore(self):
         with tempfile.TemporaryDirectory() as temp:
             base=Path(temp);game=base/'游戏';(game/'Vehicles').mkdir(parents=True)

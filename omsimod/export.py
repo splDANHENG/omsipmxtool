@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 omsipmxtool contributors
 """Portable O3D v1 writer and staged content-package export."""
+import filecmp
+import hashlib
 import json
 import re
 import struct
@@ -78,6 +80,40 @@ def texture_source(source, relative):
     return candidate
 
 
+class TextureExporter:
+    """Share baked textures within one export, retaining tint and alpha changes."""
+
+    def __init__(self, folder):
+        self.folder = folder
+        self.inputs = {}
+        self.contents = {}
+        self.count = 0
+
+    def export(self, source, diffuse, name):
+        key = (source, tuple(max(0.0, min(1.0, v)) for v in diffuse))
+        if key in self.inputs:
+            return self.inputs[key]
+        destination = self.folder/name
+        mode = bake_texture(source, diffuse, destination)
+        digest = hashlib.sha256()
+        with destination.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(1024*1024), b''):
+                digest.update(chunk)
+        candidates = self.contents.setdefault(digest.digest(), [])
+        for existing, existing_mode in candidates:
+            # Confirm byte equality even in the event of a hash collision.
+            if filecmp.cmp(destination, self.folder/existing, shallow=False):
+                destination.unlink()
+                result = (existing, existing_mode)
+                break
+        else:
+            result = (name, mode)
+            candidates.append(result)
+            self.count += 1
+        self.inputs[key] = result
+        return result
+
+
 def text_file(path, lines):
     path.write_bytes(('\r\n'.join(lines)+'\r\n').encode('utf-8'))
 
@@ -115,6 +151,7 @@ def convert(model, source, output, name, height, overrides):
         meshes, textures = folder/'model', folder/'texture'
         meshes.mkdir(parents=True)
         textures.mkdir()
+        texture_exporter = TextureExporter(textures)
         cfg, offset, mesh_count = [], 0, 0
         for mi, material in enumerate(model.materials):
             faces = model.indices[offset:offset+material.count]
@@ -122,8 +159,10 @@ def convert(model, source, output, name, height, overrides):
             if material.diffuse[3] <= 0:
                 model.warnings.append(f'Omitted fully hidden material: {material.name}')
                 continue
-            tex = f'mat_{mi:03d}.png'
-            alpha_mode = bake_texture(sources.get(material.texture), material.diffuse, textures/tex)
+            if not faces:
+                continue
+            tex, alpha_mode = texture_exporter.export(
+                sources.get(material.texture), material.diffuse, f'mat_{mi:03d}.png')
             # <=8,000 triangles -> <=48,000 vertices when double-sided,
             # safely below all v1/u16 section limits.
             for start in range(0, len(faces), 24000):
@@ -172,6 +211,7 @@ def convert(model, source, output, name, height, overrides):
                   'human_path': f'Humans\\{name}\\driver.hum', 'height': height,
                   'vertices': len(model.vertices), 'triangles': len(model.indices)//3,
                   'output_meshes': mesh_count,
+                  'output_textures': texture_exporter.count,
                   'weighted_vertices_by_bone': {slot: sum(w.get(i, 0) > 0 for w in weights)
                                                 for i, slot in enumerate(SLOTS)},
                   'joints': {role: model.bones[i].name for role, i in joints.items()},

@@ -12,9 +12,19 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
-**Windows download: [v0.3.1 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.1)**. Download `omsipmxtool-0.3.1-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+**Windows download: [v0.3.2 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.2)**. Download `omsipmxtool-0.3.2-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
 
 ## Changelog
+
+### v0.3.2 · 2026-10-19
+
+- **Prompt guidance:** require evidence for parameter values, prioritize explicit fixes already given by errors, and avoid unnecessary questionnaires or unverified UI instructions.
+- **Validation:** 77 automated tests passed; the rebuilt EXE passed startup and preview-mapping checks.
+
+- **Added:** offline AI-help prompts on the converter and character-library pages, including version, operation, recent error and relevant guidance. Preview with paths hidden, then copy to your own AI. No API key, network requests or automatic uploads; review the text before sharing.
+
+- **Fixed:** share one exported texture across materials with identical baked output, including identical results from different source files. Update mesh and material references together, preserving differences in tint and alpha.
+- **Migration:** regenerate and reinstall existing character packages to apply this fix; do not manually delete their duplicate textures.
 
 ### v0.3.1 · 2026-10-19
 
@@ -43,7 +53,7 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 - **Scope:** the main application reads selected model resources, exports character packages and, when requested, installs characters and updates map driver lists with recovery backups. Catalogue data, backups and logs default to `%LOCALAPPDATA%\OMSI Mod Studio` on Windows. Launching the game runs the executable configured by the user.
 - **Excluded behavior:** the main converter implements no telemetry uploads, startup persistence, antivirus disabling or process-memory injection. Separate local experimental tools are not included in the official EXE or corresponding source ZIP.
-- **Verify downloads:** use this project's GitHub Releases and compare the ZIP's SHA-256 with `SHA256SUMS.txt`, e.g. `Get-FileHash .\omsipmxtool-0.3.1-windows-x64.zip -Algorithm SHA256`. Per-file manifests, build information and corresponding sources are supplied. Matching hashes prove file identity, not the absence of vulnerabilities or malware.
+- **Verify downloads:** use this project's GitHub Releases and compare the ZIP's SHA-256 with `SHA256SUMS.txt`, e.g. `Get-FileHash .\omsipmxtool-0.3.2-windows-x64.zip -Algorithm SHA256`. Per-file manifests, build information and corresponding sources are supplied. Matching hashes prove file identity, not the absence of vulnerabilities or malware.
 - **Limits:** the EXE is unsigned. Unknown-publisher/reputation warnings differ from malware detections. Tests, review and individual antivirus scans are not guarantees of safety or complete third-party dependency audits.
 - **Reports:** pause use and provide the download URL, version, detected file's SHA-256, detection name and screenshot in [Issues](https://github.com/splDANHENG/omsipmxtool/issues). Do not post private models, credentials or sensitive paths. Maintainers should verify and investigate; confirmed issues require stopping affected distribution, fixing and announcing the issue. Suspected false positives should be submitted to the vendor for review with the outcome disclosed.
 - **Keep protection enabled:** do not disable antivirus, whitelist entire drives or elevate privileges to bypass alerts. Microsoft provides a [file review portal](https://www.microsoft.com/en-us/wdsi/filesubmission) and [SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).

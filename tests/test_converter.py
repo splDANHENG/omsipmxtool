@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from dataclasses import replace
 from pathlib import Path
 from PIL import Image
@@ -232,6 +233,53 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(bake_texture(src,(.5,1,1,.5),dst),2)
         with Image.open(dst) as img:
             self.assertEqual(img.getpixel((0,0)),(100,100,50,64))
+
+    def export_materials(self, variants):
+        model = load(self.source)
+        model.textures = ['a.png', 'b.png']
+        for name in model.textures:
+            Image.new('RGBA', (2, 2), (200,100,50,255)).save(self.root/name)
+        model.materials = [replace(model.materials[0], texture=texture, diffuse=diffuse)
+                           for texture, diffuse in variants]
+        model.indices *= len(variants)
+        output = self.root/'shared'
+        report = convert(model, self.source, output, 'Test', 1.75, {})
+        folder = output/'Humans/Test'
+        references = [read_o3d(path)[2] for path in sorted((folder/'model').glob('*.o3d'))]
+        cfg = (folder/'model/model.cfg').read_text().splitlines()
+        self.assertEqual([cfg[i+1] for i, line in enumerate(cfg) if line == '[matl]'], references)
+        self.assertTrue(all((folder/'texture'/name).is_file() for name in references))
+        self.assertEqual(report['output_textures'], len(list((folder/'texture').glob('*.png'))))
+        self.assertEqual(report['output_meshes'], len(variants))
+        return folder, references, cfg
+
+    def test_shared_source_baked_once_and_referenced_by_all_meshes(self):
+        with patch('omsimod.export.bake_texture', wraps=bake_texture) as bake:
+            folder, references, _ = self.export_materials([(0, (1,1,1,1))]*8)
+        self.assertEqual(bake.call_count, 1)
+        self.assertEqual(references, ['mat_000.png']*8)
+        self.assertEqual(len(list((folder/'texture').iterdir())), 1)
+
+    def test_identical_baked_content_from_different_files_is_shared(self):
+        folder, references, _ = self.export_materials([(0,(1,1,1,1)), (1,(1,1,1,1))])
+        self.assertEqual(references, ['mat_000.png']*2)
+        self.assertEqual(len(list((folder/'texture').iterdir())), 1)
+
+    def test_different_tint_and_alpha_are_preserved(self):
+        folder, references, cfg = self.export_materials([
+            (0,(1,1,1,1)), (0,(.5,1,1,1)), (0,(1,1,1,.5)), (0,(1,1,1,1))])
+        self.assertEqual(references, ['mat_000.png','mat_001.png','mat_002.png','mat_000.png'])
+        for name, pixel in zip(references, [(200,100,50,255),(100,100,50,255),
+                                           (200,100,50,128),(200,100,50,255)]):
+            with Image.open(folder/'texture'/name) as image:
+                self.assertEqual(image.getpixel((0,0)), pixel)
+        self.assertEqual([cfg[i+1] for i, line in enumerate(cfg) if line == '[matl_alpha]'],
+                         ['0','0','2','0'])
+
+    def test_untextured_materials_share_only_identical_colors(self):
+        _, references, _ = self.export_materials([
+            (-1,(1,1,1,1)), (-1,(1,1,1,1)), (-1,(.5,1,1,1))])
+        self.assertEqual(references, ['mat_000.png','mat_000.png','mat_002.png'])
 
     def test_no_overwrite(self):
         out = self.root/'existing'; out.mkdir()

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabe
     QLineEdit,QPushButton,QFileDialog,QComboBox,QListWidget,QListWidgetItem,QPlainTextEdit,QCheckBox)
 from .library import Library,game_command
 from .paths import prepare_data_directory
+from .ai_help import make_help_button
 
 
 class Manager(QWidget):
@@ -18,6 +19,7 @@ class Manager(QWidget):
         self.setObjectName("manager"); self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground,True)
         self.library=Library(prepare_data_directory())
         self.pool=QThreadPool(self);self.busy=False;self.child=None
+        self.help_operation, self.help_error = '角色库与游戏', ''
         layout=QVBoxLayout(self);layout.setContentsMargins(24,24,24,24);layout.setSpacing(12)
         title=QLabel('角色库与游戏');title.setObjectName('title');layout.addWidget(title)
         note=QLabel('一键应用覆盖全部已安装地图中的动态司机，切换车辆无需重新设置。车辆需支持司机显示；不替换车辆自带的固定人物。AI 也可能使用所选角色。')
@@ -48,6 +50,7 @@ class Manager(QWidget):
         body.addLayout(row);layout.addWidget(self.controls)
         self.status=QLabel('导入完整人物目录中的 .hum，或转换后加入角色库。');self.status.setWordWrap(True);layout.addWidget(self.status)
         self.details=QPlainTextEdit();self.details.setReadOnly(True);layout.addWidget(self.details)
+        self.help_button=make_help_button(self);layout.addWidget(self.help_button)
         self.list.currentRowChanged.connect(self.selected)
         self.refresh();self.scan(silent=True)
 
@@ -84,18 +87,21 @@ class Manager(QWidget):
         return root
 
     def import_hum(self):
+        self.help_operation, self.help_error = '导入 HUM', ''
         path,_=QFileDialog.getOpenFileName(self,'导入已有 HUM 人物','','人物文件 (*.hum)')
         if path:
             try:self.add_path(path)
-            except Exception as e:self.status.setText(str(e))
+            except Exception as e:self.record_error(str(e))
 
     def remove(self):
+        self.help_operation, self.help_error = '移出角色库', ''
         try:self.library.remove(self.current()['id']);self.refresh();self.status.setText('已移出列表；源文件和已安装人物未删除。')
-        except Exception as e:self.status.setText(str(e))
+        except Exception as e:self.record_error(str(e))
 
     def reveal(self):
+        self.help_operation, self.help_error = '打开人物目录', ''
         try:QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(self.current()['hum']).parent)))
-        except Exception as e:self.status.setText(str(e))
+        except Exception as e:self.record_error(str(e))
 
     def pick_exe(self):
         path,_=QFileDialog.getOpenFileName(self,'选择 openomsi / openomsi.exe')
@@ -106,6 +112,7 @@ class Manager(QWidget):
         if path:self.root.setText(path);self.scan()
 
     def scan(self,*_,silent=False):
+        if not silent:self.help_operation, self.help_error = '扫描地图与车辆', ''
         try:
             self.maps.clear();self.buses.clear()
             root=Path(self.root.text()).expanduser()
@@ -119,7 +126,7 @@ class Manager(QWidget):
             self.library.settings({'root':str(root),'executable':self.executable.text().strip()})
             self.status.setText(f'找到 {self.maps.count()} 张地图和 {self.buses.count()} 辆车。')
         except Exception as e:
-            if not silent:self.status.setText(str(e))
+            if not silent:self.record_error(str(e))
 
     def run(self,fn,success):
         from .gui import Work
@@ -130,13 +137,16 @@ class Manager(QWidget):
         self.worker.events.done.connect(self.job_done);self.worker.events.failed.connect(self.job_failed);self.pool.start(self.worker)
 
     def job_done(self,value):
+        self.help_error = '\n'.join(line for line in str(value or '').splitlines() if line.startswith('失败：'))
         self.busy=False;self.controls.setEnabled(True);self.status.setText(self.success_message)
         self.details.setPlainText(str(value or self.success_message))
 
     def job_failed(self,message):
+        self.help_error = message
         self.busy=False;self.controls.setEnabled(True);self.status.setText('未完成：'+message)
 
     def apply(self):
+        self.help_operation, self.help_error = '应用所选角色', ''
         try:
             item=self.current();root=self.root.text().strip();map_name=self.maps.currentText()
             if self.all_maps.isChecked():
@@ -145,25 +155,28 @@ class Manager(QWidget):
                 return
             if not root or not map_name:raise ValueError('请先扫描内容目录并选择地图')
             self.run(lambda:self.library.activate(item,root,map_name),'角色已应用。重启游戏后生效，无需从本工具启动。')
-        except Exception as e:self.status.setText(str(e))
+        except Exception as e:self.record_error(str(e))
 
     def apply_all(self):
+        self.help_operation, self.help_error = '一键应用全部车辆', ''
         try:
             item=self.current();root=self.content_root()
             self.library.settings({'root':str(root),'executable':self.executable.text().strip()})
             self.run(lambda:self.library.batch(root,item),
                      '一键应用已结束，请查看成功与失败列表。重启游戏后，成功地图内支持动态司机的车辆均可使用。')
-        except Exception as e:self.status.setText(str(e))
+        except Exception as e:self.record_error(str(e))
 
     def restore(self):
+        self.help_operation, self.help_error = '恢复原司机', ''
         root=self.root.text().strip();map_name=self.maps.currentText()
-        if not root:self.status.setText('请先选择内容目录');return
+        if not root:self.record_error('请先选择内容目录');return
         if self.all_maps.isChecked():
             self.run(lambda:self.library.batch(root),'批量恢复已结束，请查看下方结果。未备份的地图不变。')
             return
         self.run(lambda:self.library.restore(root,map_name),'已恢复原司机列表；人物资源保留以免影响其他地图。')
 
     def launch(self):
+        self.help_operation, self.help_error = '启动游戏', ''
         try:
             if self.child and self.child.poll() is None:raise ValueError('本工具启动的游戏仍在运行，请先退出。')
             cmd=game_command(self.executable.text().strip(),self.root.text().strip(),self.maps.currentText(),self.buses.currentText())
@@ -171,4 +184,8 @@ class Manager(QWidget):
             with log.open('ab') as stream:
                 self.child=subprocess.Popen(cmd,stdout=stream,stderr=stream,cwd=self.library.directory)
             self.status.setText('游戏已启动。若退出，请查看下方日志文件。');self.details.setPlainText(str(log))
-        except Exception as e:self.status.setText(str(e))
+        except Exception as e:self.record_error(str(e))
+
+    def record_error(self, message):
+        self.help_error = message
+        self.status.setText(message)

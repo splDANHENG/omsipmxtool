@@ -14,6 +14,7 @@ from .pmx import load, read_metadata
 from .model_notice import ModelNotice
 from .naming import pinyin_name
 from .export import convert, character_name
+from .ai_help import make_help_button
 
 
 def pmx_height(model):
@@ -142,6 +143,8 @@ class Window(QMainWindow):
         self.accepted_source = None
         self.review_open = False
         self.edited_mapping = None
+        self.help_operation = '尚未操作'
+        self.help_error = ''
         from .manager import Manager
         self.manager = Manager()
         tabs = QTabWidget(); self.setCentralWidget(tabs)
@@ -208,6 +211,7 @@ class Window(QMainWindow):
         self.status = QLabel('准备就绪 · 选择一个 PMX 开始'); self.status.setWordWrap(True); page.addWidget(self.status)
         self.summary = QLabel('转换结果将包括 .hum、O3D 网格、PNG 贴图和安装说明。'); self.summary.setObjectName('muted'); self.summary.setWordWrap(True); page.addWidget(self.summary)
         self.log = QPlainTextEdit(); self.log.setReadOnly(True); self.log.setPlaceholderText('模型信息、骨骼列表和转换报告会显示在这里。'); page.addWidget(self.log,1)
+        self.help_button = make_help_button(self); page.addWidget(self.help_button)
         footer = QHBoxLayout()
         self.open_button = QPushButton('打开输出文件夹'); self.open_button.setEnabled(False); self.open_button.clicked.connect(self.open_output)
         foot = QLabel('实验版 0.3 · 文件转换成功不代表游戏内验证通过'); foot.setObjectName('muted')
@@ -237,6 +241,7 @@ class Window(QMainWindow):
             self.inspect_source_if_needed()
 
     def source_changed(self, text):
+        self.help_operation, self.help_error = '选择模型', ''
         self.accepted_source = None
         self.inspected_source = None
         self.mapping.clear()
@@ -278,6 +283,7 @@ class Window(QMainWindow):
 
     def edit_mapping(self):
         if self.busy or self.manager.busy: return
+        self.help_operation, self.help_error = '编辑骨骼映射', ''
         try:
             source = self.source_path()
             if not self.review_source(source): return
@@ -339,6 +345,7 @@ class Window(QMainWindow):
 
     def start(self, function, callback, message):
         if self.busy or self.manager.busy: return
+        self.help_operation, self.help_error = message, ''
         self.busy = True
         self.manager.setEnabled(False)
         self.form_card.setEnabled(False); self.inspect_button.setEnabled(False); self.convert_button.setEnabled(False); self.open_button.setEnabled(False)
@@ -356,12 +363,14 @@ class Window(QMainWindow):
         self.progress.setRange(0,1); self.progress.setValue(1)
 
     def failed(self, message):
+        self.help_error = message
         self.finish(); self.progress.setValue(0)
         self.status.setText('操作未完成 · '+message)
         self.log.setPlainText(message)
 
     def inspect(self):
         if self.busy or self.manager.busy: return
+        self.help_operation, self.help_error = '检查模型与骨骼', ''
         try:
             source = self.source_path()
             if not self.review_source(source): return
@@ -383,6 +392,7 @@ class Window(QMainWindow):
     def convert(self):
         if self.busy or self.manager.busy:
             self.status.setText('请等待当前转换或游戏应用任务完成。');return
+        self.help_operation, self.help_error = '生成人物包', ''
         try:
             source = self.source_path()
             if not self.review_source(source): return
@@ -413,6 +423,8 @@ class Window(QMainWindow):
             self.status.setText('人物包已生成并安装到 OMSI')
             self.summary.setText('已安装：'+installation['hum']+'\n在“角色库与游戏”点击“一键应用全部车辆”即可启用。')
         elif installation['status']=='failed':
+            self.help_operation = '人物包已生成，安装或入库失败'
+            self.help_error = installation['error']
             self.status.setText('人物包已生成，但安装 / 入库未完成：'+installation['error'])
             self.summary.setText('导出文件已保留；修正目录或权限后，可在角色库中重试应用。')
         else:
