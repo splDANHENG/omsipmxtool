@@ -221,7 +221,7 @@ Such parts may obscure instruments or clip through the steering wheel, dashboard
 
 Current development prioritizes capabilities that **do not require modifying or recompiling OpenOMSI**, including model conversion, character-package management and compatibility diagnostics. Improvements remain within the game's existing resource formats and configuration mechanisms.
 
-**Features requiring modification and recompilation of OpenOMSI are outside the current development plan.** Each request will be evaluated against the target version's capabilities. Resource conversion and configuration cannot replace runtime features or guarantee fixes for problems caused by internal game behavior.
+**Features requiring modification and recompilation of OpenOMSI are outside the current development plan.** For example, if the target version lacks the necessary support, real-time physics and collision response for character clothing may require extending the game executable and cannot be implemented through character conversion alone. Each request will be evaluated against the target version's capabilities. Resource conversion and configuration cannot replace runtime features or guarantee fixes for problems caused by internal game behavior.
 
 If OpenOMSI reaches a version suitable for long-term use, with sufficiently stable interfaces and behavior, and sustained maintenance is feasible, the project may assess deeper extensions based on a specific stable version. Any distribution of modified builds requires prior review of applicable licenses, source-availability obligations and permissions for bundled assets.
 
