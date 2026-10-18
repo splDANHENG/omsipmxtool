@@ -12,6 +12,8 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 快速入口：[详细使用说明](#详细使用说明) · [显示司机手臂](#在驾驶视角显示司机手臂) · [从源码运行](#从源码运行) · [版权声明](#模型版权与使用声明) · [问题反馈](#已知问题与反馈)
 
+**Windows 下载：[v0.2.0 实验版](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.2.0)**。下载 `omsipmxtool-0.2.0-windows-x64.zip`，完整解压后运行 `omsipmxtool.exe`；请保留同目录的 `_internal` 文件夹，无需安装 Python。程序尚未进行代码签名。
+
 ## 可以做什么？
 
 - **PMX 转人物包**：生成 HUM、O3D 模型、PNG 贴图和转换报告。
@@ -40,7 +42,9 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 ### 1. 准备软件、游戏和模型
 
-本仓库当前发布源码，不提供已经完成公开发行许可整理的 EXE 下载。在 GitHub 点击 **Code → Download ZIP**，完整解压到可写目录，再按下方“从源码运行”安装并启动；也可使用 Git 克隆：
+Windows 用户可从 [Release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.2.0) 下载 `omsipmxtool-0.2.0-windows-x64.zip`，完整解压到可写目录，双击 `omsipmxtool.exe`。不要只移动 EXE，也不要在压缩包内直接运行。当前在 Windows 10 x64 上验证，Windows 11 尚未完成实机验证。
+
+如果希望从源码运行，在 GitHub 点击 **Code → Download ZIP**，完整解压后按下方“从源码运行”安装并启动；也可使用 Git 克隆：
 
 ```bash
 git clone https://github.com/splDANHENG/omsipmxtool.git
@@ -258,7 +262,7 @@ omsipmxtool 为非官方转换工具，与 OMSI、OpenOMSI、MMD 及所导入角
 
 **软件开源许可证不授予第三方模型的使用或分发权限。模型用途说明也不对软件开源许可证另加“仅限个人”或“禁止商业使用”的限制。**
 
-当前发布范围为源码。Windows EXE 公开发行前，仍需完成其捆绑依赖的许可和对应源码材料整理。审查记录见 [RELEASE-REVIEW.txt](RELEASE-REVIEW.txt)。
+Windows Release 同时提供应用源码、依赖源码和 SHA-256 校验清单。捆绑组件、许可、重建及动态库替换说明见 [BINARY-DISTRIBUTION.txt](BINARY-DISTRIBUTION.txt)，审查记录见 [RELEASE-REVIEW.txt](RELEASE-REVIEW.txt)。
 
 ## 已知问题与反馈
 

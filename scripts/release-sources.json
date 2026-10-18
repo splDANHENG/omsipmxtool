@@ -1,0 +1,86 @@
+[
+  {
+    "file": "qtbase-everywhere-src-6.12.0.tar.xz",
+    "url": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/qtbase-everywhere-src-6.12.0.tar.xz",
+    "sha256": "a951bd163c7b80fc6b8c88d7668fb56abf91c152373e13c10666763238131307",
+    "bytes": 51220268
+  },
+  {
+    "file": "qttranslations-everywhere-src-6.12.0.tar.xz",
+    "url": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/qttranslations-everywhere-src-6.12.0.tar.xz",
+    "sha256": "85929c0c30d6f273f23bd879bb69803ea17b010ab73cab2f8abf95357f6f6bbb",
+    "bytes": 1745884
+  },
+  {
+    "file": "pyside-setup-everywhere-src-6.12.0.tar.xz",
+    "url": "https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.12.0-src/pyside-setup-everywhere-src-6.12.0.tar.xz",
+    "sha256": "099c1a597cf33c1b000e11cf68a0b82d216fb802bf81726efc720394f10c7751",
+    "bytes": 18211772
+  },
+  {
+    "file": "Python-3.14.0.tar.xz",
+    "url": "https://www.python.org/ftp/python/3.14.0/Python-3.14.0.tar.xz",
+    "sha256": "2299dae542d395ce3883aca00d3c910307cd68e0b2f7336098c8e7b7eee9f3e9",
+    "bytes": 23595844
+  },
+  {
+    "file": "pillow-12.3.0.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/1c/3d/bb7fca845737cf9d7dbde16ed1843984665ff2e0a518f5db43e77ec540b9/pillow-12.3.0.tar.gz",
+    "sha256": "3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce",
+    "bytes": 47025035
+  },
+  {
+    "file": "pypinyin-0.55.0.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/b4/a4/784cf98c09e0dc22776b0d7d8a4a5b761218bcae4608c2416ce1e167c8af/pypinyin-0.55.0.tar.gz",
+    "sha256": "b5711b3a0c6f76e67408ec6b2e3c4987a3a806b7c528076e7c7b86fcf0eaa66b",
+    "bytes": 839836
+  },
+  {
+    "file": "pyinstaller-6.22.3.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/63/41/f90302845945abd4ed647933ff5ee7c6ac93983187be67f897b6cb613331/pyinstaller-6.22.3.tar.gz",
+    "sha256": "05eb2f5615503e72939a7224d68b4aff572c6b0438ee4a17d0a4b481f399362d",
+    "bytes": 4437180
+  },
+  {
+    "file": "cpython-dependency-openssl-3.0.18.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/openssl-3.0.18",
+    "sha256": "9b07560b6c1afa666bd78b8d3aa5c83fdda02149afdf048596d5b0e0dac1ee55",
+    "bytes": 15502070
+  },
+  {
+    "file": "cpython-dependency-libffi-3.4.4.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/libffi-3.4.4",
+    "sha256": "9d802681adfea27d84cae0487a785fb9caa925bdad44c401b364c59ab2b8edda",
+    "bytes": 1375889
+  },
+  {
+    "file": "cpython-dependency-xz-5.2.5.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/xz-5.2.5",
+    "sha256": "a15c168e39e87d750c3dc766edc7f19bdda57dacf01e509678467eace91ad282",
+    "bytes": 1744796
+  },
+  {
+    "file": "cpython-dependency-zlib-ng-2.2.4.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/zlib-ng-2.2.4",
+    "sha256": "00bbd88709bc416cb96160ab61d3e1c8f76e106799af7328d0fe434dc7dd5004",
+    "bytes": 2415819
+  },
+  {
+    "file": "cpython-dependency-zstd-1.5.7.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/zstd-1.5.7",
+    "sha256": "f24b52470d12f466e9fa4fcc94e6c530625ada51d7b36de7fdc6ed7e6f499c8e",
+    "bytes": 2440298
+  },
+  {
+    "file": "cpython-dependency-mpdecimal-4.0.0.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/mpdecimal-4.0.0",
+    "sha256": "338fac3fb8cdd60f406b6326431338756f58a8af94229ffd9bf1e7c2b1ad71ca",
+    "bytes": 319629
+  },
+  {
+    "file": "cpython-dependency-bzip2-1.0.8.tar.gz",
+    "url": "https://codeload.github.com/python/cpython-source-deps/tar.gz/bzip2-1.0.8",
+    "sha256": "ab8d1b0cc087c20d4c32c0e4fcf7d0c733a95da12cedc6d63b3f0a9af07427e2",
+    "bytes": 818771
+  }
+]

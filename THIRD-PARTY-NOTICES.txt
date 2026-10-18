@@ -75,11 +75,13 @@ PyInstaller           6.22.3         GPL-2.0-or-later 含 bootloader 分发例�
                                      LICENSES/PyInstaller-6.22.3.txt
 setuptools            构建依赖       MIT；github.com/pypa/setuptools
 
-上述源码发布仅声明依赖，不分发 Python、Qt、Pillow 等运行时二进制。
-LICENSES/LGPL-3.0.txt 是许可正文，不是完整 Qt 二进制发布合规材料。
-本地 EXE 不能凭这份清单视为已可公开发布；仍需逐项落实实际打包组件的
-许可、对应源码、构建资料和适用的库替换要求。旧便携构建脚本会解包完整
-Qt wheel，更不能直接当作已审核的二进制发行方案。
+源码 ZIP 不分发运行时二进制。Windows v0.2.0 发布包另附实际文件清单、
+构建信息、原始第三方许可和归属文件；同一 Release 提供对应依赖源码。
+具体组件范围、构建资料与库替换方法见 BINARY-DISTRIBUTION.txt。
+本次 Qt 范围限于 Core、Gui、Widgets、Network 和 Qt base 插件及翻译；
+不包括 PDF、QML、Quick、VirtualKeyboard 和 Mesa 软件 OpenGL 二进制。
+旧便携构建脚本仅留作历史参考，公开包使用 scripts/build_gui.py 和
+scripts/package_windows.py。详细原始声明在二进制包 LICENSES/upstream。
 
 5. 证据边界
 

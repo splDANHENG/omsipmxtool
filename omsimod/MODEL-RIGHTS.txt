@@ -42,3 +42,11 @@ omsipmxtool 是由用户自行提供 PMX 文件的模型转换工具。本项目
 
 法律参考：国家版权局《中华人民共和国著作权法》，特别是第十条、第二十四条。
 https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html
+
+六、软件运行库许可
+本程序使用 Qt / PySide6 / Shiboken6 6.12.0。
+Copyright (C) The Qt Company Ltd. and other contributors.
+相关库及其使用适用 GNU LGPL 第 3 版，第三方组件各自的声明仍适用。
+完整许可见随软件提供的 LICENSES/LGPL-3.0.txt、LICENSES/GPL-3.0.txt；
+对应源码、重建和替换库的方法见 BINARY-DISTRIBUTION.txt 及 GitHub Release。
+上述模型使用建议不限制开源软件许可证授予的修改、分发和调试权利。

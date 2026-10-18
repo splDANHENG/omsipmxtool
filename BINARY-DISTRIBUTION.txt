@@ -1,0 +1,79 @@
+omsipmxtool 0.2.0 — Windows x64 distribution / 二进制发布说明
+
+使用 / Use
+完整解压 Windows ZIP 到可写目录，双击 omsipmxtool.exe。
+保留旁边的 _internal 文件夹。无需另装 Python 或 Blender。
+Extract the entire Windows ZIP and run omsipmxtool.exe. Keep _internal beside it.
+The UI is Chinese. See README.en.md for English instructions.
+实验版；未进行代码签名。仅在 Windows 10 x64 上验证；未完成 Windows 11 实机验证。
+Experimental, unsigned build; tested on Windows 10 x64, not independently on Windows 11.
+不含人物模型、贴图、游戏文件或用户数据。使用模型前请遵守 MODEL-RIGHTS.txt
+及模型配布方的实际许可。软件开源许可不授予第三方模型使用权。
+
+许可证 / Licenses
+Application: AGPL-3.0-only; PMX reader: GPL-3.0-or-later. See LICENSE and
+THIRD-PARTY-NOTICES.txt for the original authors and adapted implementation history.
+This program uses Qt, PySide6 and Shiboken6 6.12.0.
+Copyright (C) The Qt Company Ltd. and other contributors.
+The included Qt Core, Gui, Widgets, Network and Qt base plugins, and the bindings,
+are distributed using their LGPLv3 option, with their own third-party exceptions
+and notices retained. See LICENSES/LGPL-3.0.txt and LICENSES/GPL-3.0.txt.
+LICENSES/upstream contains original legal texts, copyright/notice files and Qt
+attribution metadata from the source archives, including components not enabled
+in this build. The actual binary inventory is BINARY-MANIFEST.sha256.
+No Qt PDF, QML, Quick, VirtualKeyboard or Mesa opengl32sw binary is distributed.
+Python 3.14.0 (PSF and bundled terms), Pillow 12.3.0 (MIT-CMU and bundled terms),
+pypinyin 0.55.0 (MIT), and the PyInstaller 6.22.3 bootloader (GPLv2+ with its
+distribution exception) retain their respective licenses in LICENSES.
+MSVC runtime terms are retained in LICENSES/Python-3.14.0.txt; Windows system
+libraries are supplied by the operating system. Build tool licensing does not
+relicense the application. Runtime versions/features are in BUILD-INFO.json.
+
+对应源码 / Corresponding source
+The same release provides omsipmxtool-0.2.0-source.zip (application and build
+scripts) and omsipmxtool-0.2.0-dependency-sources.zip (unmodified upstream sources,
+including Qt base/translations, PySide/Shiboken, Python, Pillow, pypinyin and
+PyInstaller). No project-specific patches are applied to these libraries.
+https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.2.0
+These downloads are available without charge alongside the Windows binary.
+sources.json records the original source URLs and SHA-256 hashes; SHA256SUMS.txt
+records release asset hashes. Keep these source assets available when mirroring
+the binary. A link alone is not a replacement for your redistribution obligations.
+
+重建程序 / Rebuild the application (PowerShell, Windows x64)
+Install CPython 3.14.0 x64 from python.org, extract the project source, then:
+  py -3.14 -m venv .venv-gui
+  .\.venv-gui\Scripts\python.exe -m pip install -r requirements-release.txt
+  .\.venv-gui\Scripts\python.exe -m unittest discover -s tests
+  .\.venv-gui\Scripts\python.exe scripts/build_gui.py
+  .\.venv-gui\Scripts\python.exe scripts/fetch_release_sources.py
+  .\.venv-gui\Scripts\python.exe scripts/package_windows.py
+The output folder is dist/omsipmxtool. These instructions produce a functional
+rebuild; byte-for-byte reproduction of the upstream wheels is not claimed.
+Upstream archives include their build scripts and instructions. Qt uses shared
+MSVC 2022 x64 release libraries. Build a compatible Qt with CMake/Ninja and the
+Windows SDK, using qtbase/configure.bat -opensource -confirm-license -shared
+-release -nomake examples -nomake tests -prefix <your-prefix>, then cmake --build .
+and cmake --install . from a separate build directory. See qtbase/README.md.
+For bindings, see pyside-setup/README.md and sources/pyside6/doc/building_from_source/
+in the supplied archive; use the matching Qt 6.12.0, x64 MSVC and Python ABI.
+Official build details: https://doc.qt.io/qtforpython-6/building_from_source/index.html
+
+替换库 / Replace or modify the libraries
+You may modify the LGPL libraries and reverse engineer the combined work to debug
+those modifications. This project imposes no prohibition on those activities.
+Close the application, back up the complete extracted folder, and replace the
+interface-compatible Qt DLLs/plugins under _internal/PySide6, PySide6 .pyd files
+and pyside6.abi3.dll there, and the Shiboken files under _internal/shiboken6.
+Preserve filenames, architecture, dependent libraries and ABI compatibility.
+No signature or hash enforcement prevents loading your replacements. Qt plugins
+must match the Qt build. Restart the EXE to use the replacement libraries.
+If the Python wrappers also change, install your built wheels into the build
+environment and run scripts/build_gui.py again to regenerate the frozen archive.
+The complete application source and build hooks are supplied for this purpose.
+No installation key, vendor account or hardware lock is required.
+
+中文摘要：本包使用 LGPLv3 的 Qt/PySide/Shiboken；完整许可、原始声明及
+对应源码随本次 Release 提供。可以修改和替换兼容的动态库，也可以为调试
+这些修改而进行逆向工程；本项目不对此施加禁止。修改 Python 包装层时可
+使用随附源码和构建脚本重新打包。模型用途建议不限制这些软件许可权利。

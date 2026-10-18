@@ -12,10 +12,12 @@ def main():
     files = [ROOT/name for name in (
         '.gitignore', '.gitattributes', 'pyproject.toml', 'README.md', 'README.en.md',
         'LICENSE', 'THIRD-PARTY-NOTICES.txt', 'MODEL-RIGHTS.txt',
+        'BINARY-DISTRIBUTION.txt', 'requirements-release.txt', 'scripts/release-sources.json',
         'RELEASE-REVIEW.txt', 'TWO-COMPUTERS.md', 'WINDOWS-HANDOFF.txt',
         'Start-GUI.bat', '启动界面.command', 'assets/studio.png', 'assets/studio.icns')]
     for folder, pattern in (('omsimod', '*.py'), ('tests', '*.py'),
                             ('scripts', '*.py'), ('LICENSES', '*.txt'),
+                            ('scripts/pyinstaller_hooks', '*.py'),
                             ('.github/workflows', '*.yml')):
         files.extend((ROOT/folder).glob(pattern))
     files.append(ROOT/'omsimod/MODEL-RIGHTS.txt')

@@ -19,6 +19,8 @@ args = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
 if sys.platform == 'darwin':
     args += ['--osx-bundle-identifier', 'org.omsipmxtool.app',
              '--icon', str(root/'assets'/'studio.icns')]
+if sys.platform == 'win32':
+    args += ['--additional-hooks-dir', str(root/'scripts'/'pyinstaller_hooks')]
 args += [str(root/'scripts'/'gui_entry.py')]
 env = dict(os.environ, PYINSTALLER_CONFIG_DIR=str(root/'build'/'pyinstaller-cache'))
 if sys.platform == 'win32':
@@ -30,6 +32,14 @@ if sys.platform == 'win32':
         windows/'System32', windows,
     ]))
 subprocess.run(args, cwd=root, env=env, check=True)
+if sys.platform == 'win32':
+    # Widgets uses the Windows raster backend; no software OpenGL renderer is needed.
+    software_gl = root/'dist'/'omsipmxtool'/'_internal'/'PySide6'/'opengl32sw.dll'
+    software_gl.unlink(missing_ok=True)
 notice_dir = (root/'dist'/'omsipmxtool.app'/'Contents'/'Resources'
               if sys.platform == 'darwin' else root/'dist'/'omsipmxtool')
 shutil.copy2(root/'MODEL-RIGHTS.txt', notice_dir/'MODEL-RIGHTS.txt')
+for name in ('LICENSE', 'THIRD-PARTY-NOTICES.txt', 'README.md', 'README.en.md',
+             'BINARY-DISTRIBUTION.txt'):
+    shutil.copy2(root/name, notice_dir/name)
+shutil.copytree(root/'LICENSES', notice_dir/'LICENSES', dirs_exist_ok=True)

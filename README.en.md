@@ -10,6 +10,8 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
+**Windows download: [v0.2.0 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.2.0)**. Download `omsipmxtool-0.2.0-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+
 ## Features
 
 - Export HUM, O3D meshes, PNG textures and a conversion report.
@@ -24,6 +26,8 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 ## Detailed usage guide
 
 ### 1. Prepare the application, game and model
+
+For Windows, download the Windows x64 ZIP from the Release linked above and extract it to a writable folder. Do not run it inside the ZIP or move the EXE without its supporting folder. Tested on Windows 10 x64; Windows 11 has not been independently tested.
 
 For a source installation, choose **Code → Download ZIP** on GitHub and extract everything, or clone the repository:
 
@@ -229,7 +233,7 @@ Development referenced OpenOMSI's human rig, pose handling and formats, and MMD 
 
 **The software licenses grant no rights to third-party models. The model-use guidance does not add “personal use only” or “non-commercial only” restrictions to the open-source software licenses.**
 
-Windows binary release preparation is tracked separately from source licensing. See [the review record](RELEASE-REVIEW.txt) (Chinese) and the materials accompanying each Release.
+Windows Releases include application source, dependency sources and SHA-256 checksums. See [BINARY-DISTRIBUTION.txt](BINARY-DISTRIBUTION.txt) for licenses, rebuilding and library replacement, and [the review record](RELEASE-REVIEW.txt) (Chinese).
 
 ## Known issues and feedback
 
