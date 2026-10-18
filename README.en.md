@@ -4,6 +4,8 @@
 
 [简体中文](README.md) | English
 
+> **Reporting guidance: please do not report problems with this mod in any official OpenOMSI channel. Report them to [this project's Issues](https://github.com/splDANHENG/omsipmxtool/issues) first. If you suspect an OpenOMSI bug, restore the stock driver and reproduce it in the same vehicle and conditions. Only after confirming that the stock driver has the same issue should you report it through official OpenOMSI channels, including the version and reproduction steps.**
+
 **Bring your PMX character into OpenOMSI and put them in the driver's seat.**
 
 omsipmxtool converts PMX character models into OpenOMSI character packages, with a desktop interface for conversion, installation, driver selection and restoration. Blender is not required.
@@ -207,21 +209,23 @@ For compatibility, the internal package remains `omsimod` and user data retains 
 
 ## Model copyright and usage notice
 
-**The project is intended for personal, learning-oriented use in games. This statement does not grant permission to use any particular model.**
+**The project is intended for personal, learning-oriented use in games. This statement does not replace the model author's permission, and personal, non-commercial or educational use does not automatically exempt users from applicable restrictions.**
 
 omsipmxtool is an unofficial conversion tool, without official affiliation, partnership or endorsement from OMSI, OpenOMSI, MMD or the rights holders of imported characters.
 
 Application distributions do not include third-party character models, textures or game assets. Rights in models, textures, character designs and other materials remain with their respective lawful rights holders. Format conversion does not change ownership.
 
-Before use, consult the **original PMX distribution page, accompanying Readme, embedded comments and other valid permissions**. Confirm that conversion, modification and in-game use are permitted. Other uses must also comply with applicable permissions.
+Obtain models you have permission to use. Before conversion, consult the **original PMX distribution page, accompanying Readme, embedded comments and other valid permissions**. Confirm whether format conversion, model modification and use in other games are permitted, and follow attribution, usage and redistribution requirements. Embedded comments may not contain the complete or latest terms; consult the rights holder's applicable permissions. If permission is unclear or the intended use is prohibited, contact the rights holder and obtain the necessary permission before proceeding.
 
 **The project discourages sharing converted results—including models, textures and bundled character packages—unless you have obtained permission from the relevant rights holders covering that sharing or redistribution.**
 
-When permission has been obtained, follow its scope and conditions, retain required author credits, license notices and source links, and identify conversions or modifications.
+Possessing a model file does not grant redistribution rights. Before sharing converted results, commercial use or other uses, confirm the scope of permission. Follow its conditions, retain required author credits, license notices and source links, and identify conversions or modifications.
 
 Free distribution, attribution, an “unofficial” label or a promise to remove infringing content does not replace required permission. Missing embedded comments do not mean unrestricted use or redistribution is allowed.
 
-The first-launch notice and embedded-comment dialogs are reading prompts only. **Completing them, converting successfully or installing a character does not establish authorization or certify compliance.**
+The project cannot individually verify permissions for user-imported assets. The first-launch notice and embedded-comment dialogs are reading prompts only; see [First launch and notices](#2-first-launch-and-notices) for the workflow. **Completing them, converting successfully or installing a character does not establish authorization or certify compliance.**
+
+If you find unauthorized content in this repository or its release packages, report it through a [GitHub Issue](https://github.com/splDANHENG/omsipmxtool/issues), including relevant links, an explanation of rights ownership and the specific concern so maintainers can investigate and address it. Do not upload complete models or textures to public Issues without permission; see [What to include in a report](#what-to-include-in-a-report) for troubleshooting information.
 
 The full project notice and attribution template are in [MODEL-RIGHTS.txt](MODEL-RIGHTS.txt) (Chinese). Nothing in this notice excludes or limits responsibility imposed by applicable law.
 
@@ -241,14 +245,34 @@ Windows Releases include application source, dependency sources and SHA-256 chec
 
 OpenOMSI is under active development. Character loading, skeletons and animation behaviour may change. **Neither the converter nor existing converted packages are guaranteed to keep working after an OpenOMSI update.** Report new-version compatibility issues with the old/new versions and whether the same model previously worked.
 
-### Driver animation is still evolving
+### Driver animation and vehicle detection limitations
 
-If hands move erratically or other animations look unnatural, first consider OpenOMSI's animation logic and vehicle configuration as possible causes; the converter is not necessarily responsible.
+This tool converts character models. **OpenOMSI's own animation system** generates the driver's movements during driving.
 
-- **Abnormal arm movement has been observed with the vehicle in N (neutral).** The root cause has not been identified. It may involve game logic, vehicle configuration or converted-model adaptation.
-- **Some manual-transmission vehicles may change gears and animate the gear lever normally while the driver's hand performs no shifting movement.** OpenOMSI identifies the lever through animation-variable or mesh-file names; unrecognised naming may prevent the hand from following it. This is a compatibility issue between the game and vehicle configuration and does not necessarily indicate a character-conversion error.
+The inspected source corresponding to OpenOMSI 0.3.37 includes these driver movements and pose adjustments:
 
-Compare with a stock driver in the same vehicle and conditions. Include gear selection, reproduction steps and a video where possible.
+- **Seating adjustment:** adjusts the seated pose, forward lean and seat position to help the arms reach the wheel.
+- **Steering:** hands follow the wheel, with release, regripping and alternating grip adjustments.
+- **Hand grip:** adjusts palm orientation and finger curling around the wheel or gear lever; this is not full MMD animation of individual fingers.
+- **Gear shifting:** after identifying a lever, the hand on that side reaches for it, follows its movement and returns to the wheel. A brief procedural push may also be generated.
+- **Resting a hand while stopped:** after stopping for a while, a hand may leave the wheel and rest on the identified gear lever.
+- **Seated lower-body adjustment:** adjusts bent legs and foot placement. The inspected driver code does not animate pedal presses from accelerator, brake or clutch input; clutch input can help trigger the shifting hand movement.
+
+This summarizes the inspected source, not a guarantee that every vehicle supports every movement or that later versions behave identically. No dedicated hand movements for operating indicators, wipers or dashboard buttons were found in the inspected driver animation code.
+
+Source references (pinned to `b5e4acc`): [driver animation](https://github.com/openOMSI-org/openOMSI/blob/b5e4acc/crates/omsi-scene/src/driver.rs), [wheel and gear-lever detection](https://github.com/openOMSI-org/openOMSI/blob/b5e4acc/crates/omsi-scene/src/driver/rig.rs).
+
+#### Why do movements differ between vehicles?
+
+OpenOMSI identifies vehicle parts and computes hand movements rather than simply playing a driver's animation supplied with the vehicle. **Gear-lever detection uses keywords in animation-variable and mesh-file names, along with distance and reachability checks.** Wheel detection also considers steering variables, rotation factors and position.
+
+This can produce missed detections or false positives:
+
+- **Unrecognised gear lever:** in the inspected ПАЗ 3205R configuration, gears and the lever move normally, but the driver's hand does not perform a shifting movement. Its lever filename and animation-variable names do not match the inspected detection rules.
+- **Another stalk mistaken for a gear lever:** the WG120FK was observed with the driver's right hand reaching separately towards a stalk. Source and vehicle-configuration analysis found that its right-hand wiper stalk variable, `cockpit_wischer_drehschalter`, contains the gear-lever keyword `schalt`, making it a potential false positive. The stopped-hand-resting logic could also produce an apparent stalk-operating movement. **This remains an inference, not fully confirmed by runtime detection logs or a controlled comparison. It is not evidence of a dedicated turn-signal hand animation.**
+- **Abnormal movement in neutral:** unusual arm movement has been observed in N. Its cause remains unresolved and may involve game logic, vehicle configuration or converted-model adaptation.
+
+These symptoms do not necessarily indicate a PMX conversion error. Restore the stock driver and compare in the same vehicle, gear and operating conditions, then report the results to this project to help distinguish model adaptation issues from game or vehicle-configuration issues.
 
 ### PMX models vary
 
@@ -265,5 +289,3 @@ If your model cannot be converted, [open an Issue](https://github.com/splDANHENG
 - Vehicle, map and gear, plus comparison with a stock driver.
 
 Remove personal paths from logs. **Do not upload models, textures or game files you are not authorized to redistribute.** Prefer original distribution links or a minimal example you may legally share.
-
-Rights holders can report specific project content and original sources through Issues for review and appropriate action.
