@@ -246,6 +246,7 @@ OpenOMSI is under active development. Character loading, skeletons and animation
 If hands move erratically or other animations look unnatural, first consider OpenOMSI's animation logic and vehicle configuration as possible causes; the converter is not necessarily responsible.
 
 - **Abnormal arm movement has been observed with the vehicle in N (neutral).** The root cause has not been identified. It may involve game logic, vehicle configuration or converted-model adaptation.
+- **Some manual-transmission vehicles may change gears and animate the gear lever normally while the driver's hand performs no shifting movement.** OpenOMSI identifies the lever through animation-variable or mesh-file names; unrecognised naming may prevent the hand from following it. This is a compatibility issue between the game and vehicle configuration and does not necessarily indicate a character-conversion error.
 
 Compare with a stock driver in the same vehicle and conditions. Include gear selection, reproduction steps and a video where possible.
 
