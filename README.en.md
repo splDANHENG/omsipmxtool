@@ -18,13 +18,11 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 ### v0.3.2 · 2026-10-19
 
-- **Prompt guidance:** require evidence for parameter values, prioritize explicit fixes already given by errors, and avoid unnecessary questionnaires or unverified UI instructions.
-- **Validation:** 77 automated tests passed; the rebuilt EXE passed startup and preview-mapping checks.
-
 - **Added:** local, offline generation of help prompts to copy into an AI/agent, available on the converter and character-library pages. Prompts include the version, operation, recent error and relevant guidance. Preview with paths hidden, review the text, then paste it into your chosen AI/agent for help. The application does not include or run an AI model. Generating prompts requires no API key, network requests or automatic uploads; the external AI/agent handles connectivity and data according to the service you choose.
 
 - **Fixed:** share one exported texture across materials with identical baked output, including identical results from different source files. Update mesh and material references together, preserving differences in tint and alpha.
 - **Migration:** regenerate and reinstall existing character packages to apply this fix; do not manually delete their duplicate textures.
+- **Validation:** the v0.3.2 release records 77 passing automated tests and successful Windows EXE startup and preview-mapping checks. No additional in-game or Windows 11 hardware validation was performed.
 
 ### v0.3.1 · 2026-10-19
 
