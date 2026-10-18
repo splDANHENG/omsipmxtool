@@ -1,5 +1,7 @@
 # omsipmxtool
 
+简体中文 | [English](README.en.md)
+
 **把你的 PMX 角色带进 OpenOMSI，让它坐上驾驶座。**
 
 omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形界面完成模型转换、人物包安装和司机应用，无需安装 Blender，也无需逐辆修改车辆配置。
