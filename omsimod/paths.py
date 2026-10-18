@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Writable per-user state, independent of the executable or source directory."""
 import os
 import shutil

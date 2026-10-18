@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Portable O3D v1 writer and staged content-package export."""
 import json
 import re
@@ -80,9 +82,20 @@ def text_file(path, lines):
     path.write_bytes(('\r\n'.join(lines)+'\r\n').encode('utf-8'))
 
 
+def character_name(value):
+    """Keep Unicode model names while producing a portable directory component."""
+    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', value).strip(' .')[:48].rstrip(' .')
+    if not value:
+        value = 'CustomDriver'
+    if value.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL',
+            *(f'COM{i}' for i in range(10)), *(f'LPT{i}' for i in range(10))}:
+        value = '_' + value
+    return value[:48]
+
+
 def convert(model, source, output, name, height, overrides):
-    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,47}', name):
-        raise ConversionError('--name must start with a letter, then ASCII letters/digits/_/- (max 48)')
+    if not name or character_name(name) != name:
+        raise ConversionError('角色标识须为有效文件夹名称（最多 48 字符，不含路径分隔符或 Windows 保留名称）')
     if not 0.5 <= height <= 3:
         raise ConversionError('--height must be between 0.5 and 3 metres')
     output = output.resolve()
@@ -159,6 +172,8 @@ def convert(model, source, output, name, height, overrides):
                   'human_path': f'Humans\\{name}\\driver.hum', 'height': height,
                   'vertices': len(model.vertices), 'triangles': len(model.indices)//3,
                   'output_meshes': mesh_count,
+                  'weighted_vertices_by_bone': {slot: sum(w.get(i, 0) > 0 for w in weights)
+                                                for i, slot in enumerate(SLOTS)},
                   'joints': {role: model.bones[i].name for role, i in joints.items()},
                   'warnings': model.warnings + ['Material tint/alpha rendering and seat fit require in-game verification.'],
                   'game_verified': False}

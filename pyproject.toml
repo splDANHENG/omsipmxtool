@@ -1,22 +1,29 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "omsimod"
+name = "omsipmxtool"
 version = "0.2.0"
 description = "Experimental cross-platform PMX to OpenOMSI character converter"
+license = "AGPL-3.0-only AND GPL-3.0-or-later"
+license-files = ["LICENSE", "LICENSES/*", "THIRD-PARTY-NOTICES.txt"]
 requires-python = ">=3.10"
-dependencies = ["Pillow>=10,<13"]
+dependencies = ["Pillow>=10,<13", "pypinyin>=0.55,<0.56"]
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.8,<7"]
 
 [project.gui-scripts]
+omsipmxtool-gui = "omsimod.gui:main"
 omsimod-gui = "omsimod.gui:main"
 
 [project.scripts]
+omsipmxtool = "omsimod.__main__:main"
 omsimod = "omsimod.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["omsimod*"]
+
+[tool.setuptools.package-data]
+omsimod = ["MODEL-RIGHTS.txt"]

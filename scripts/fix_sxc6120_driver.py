@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Repair the missing cabin reference in a supported SXC6120GBEV9 variant.
 
 Default is a read-only check; --apply backs up the original bytes before replacing.

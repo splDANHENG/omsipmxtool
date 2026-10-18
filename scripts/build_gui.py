@@ -1,16 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Build locally on each OS/architecture; no user data goes into the bundle."""
 import subprocess
+import shutil
 import os
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
+if (root/'MODEL-RIGHTS.txt').read_bytes() != (root/'omsimod'/'MODEL-RIGHTS.txt').read_bytes():
+    raise RuntimeError('请同步根目录和 omsimod 内的 MODEL-RIGHTS.txt 后再打包')
 args = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
-        '--windowed', '--name', 'OMSI Mod Studio', '--paths', str(root),
+        '--windowed', '--name', 'omsipmxtool', '--paths', str(root),
         '--distpath', str(root/'dist'), '--workpath', str(root/'build'),
-        '--specpath', str(root/'build')]
+        '--specpath', str(root/'build'), '--collect-data', 'pypinyin',
+        '--add-data', str(root/'omsimod'/'MODEL-RIGHTS.txt')+os.pathsep+'omsimod',
+        '--add-data', str(root/'LICENSES'/'pypinyin-0.55.0.txt')+os.pathsep+'LICENSES']
 if sys.platform == 'darwin':
-    args += ['--osx-bundle-identifier', 'org.omsimod.studio',
+    args += ['--osx-bundle-identifier', 'org.omsipmxtool.app',
              '--icon', str(root/'assets'/'studio.icns')]
 args += [str(root/'scripts'/'gui_entry.py')]
 env = dict(os.environ, PYINSTALLER_CONFIG_DIR=str(root/'build'/'pyinstaller-cache'))
@@ -23,3 +30,6 @@ if sys.platform == 'win32':
         windows/'System32', windows,
     ]))
 subprocess.run(args, cwd=root, env=env, check=True)
+notice_dir = (root/'dist'/'omsipmxtool.app'/'Contents'/'Resources'
+              if sys.platform == 'darwin' else root/'dist'/'omsipmxtool')
+shutil.copy2(root/'MODEL-RIGHTS.txt', notice_dir/'MODEL-RIGHTS.txt')

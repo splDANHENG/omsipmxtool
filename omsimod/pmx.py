@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright 2014 MMD Tools authors (referenced implementation)
+# Copyright (c) 2026 omsipmxtool contributors (adaptations)
+# PMX reader reference and modifications: see THIRD-PARTY-NOTICES.txt.
 """Read the geometry/material/bone prefix of PMX 2.0/2.1. No MMD runtime."""
 import math
 import struct
@@ -7,6 +11,35 @@ from pathlib import Path
 
 class ConversionError(ValueError):
     pass
+
+
+def read_metadata(path):
+    """Read only the four PMX header strings, without parsing model geometry."""
+    with Path(path).open('rb') as stream:
+        def take(size):
+            data = stream.read(size)
+            if len(data) != size:
+                raise ConversionError('PMX 文件头不完整，无法读取内嵌说明。')
+            return data
+        if take(4) != b'PMX ':
+            raise ConversionError('Not a PMX file')
+        version = struct.unpack('<f', take(4))[0]
+        if not any(abs(version - supported) < 1e-5 for supported in (2.0, 2.1)):
+            raise ConversionError('Unsupported PMX version')
+        header = take(take(1)[0])
+        if len(header) < 8 or header[0] not in (0, 1):
+            raise ConversionError('Invalid PMX header')
+        encoding = 'utf-16-le' if header[0] == 0 else 'utf-8'
+        info = {}
+        for key in ('name', 'english_name', 'comment', 'english_comment'):
+            size = struct.unpack('<i', take(4))[0]
+            if not 0 <= size <= 16 * 1024 * 1024:
+                raise ConversionError('PMX 内嵌说明长度异常，未显示完整内容，不能继续。')
+            try:
+                info[key] = take(size).decode(encoding)
+            except UnicodeError as exc:
+                raise ConversionError('PMX 内嵌说明编码无效，无法完整显示。') from exc
+        return info
 
 
 class Reader:
@@ -144,7 +177,11 @@ def load(path):
         else:
             raise ConversionError('Invalid toon flag')
         r.text()
-        count = r.count()
+        # This is a reference count into the index array already read above,
+        # not the length of an array stored after this field.
+        count = r.read('i')
+        if not 0 <= count <= len(indices):
+            raise ConversionError('Invalid material face count')
         if count % 3 or not -1 <= texture < len(textures):
             raise ConversionError('Invalid material indices')
         materials.append(Material(mn, diffuse, texture, count, bool(flags & 1)))

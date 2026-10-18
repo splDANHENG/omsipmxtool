@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,7 +16,8 @@ class LibraryTests(unittest.TestCase):
         self.hum=self.base/'pack'/'driver.hum';self.hum.parent.mkdir()
         self.hum.write_text('[model]\nmodel.cfg\n')
         (self.hum.parent/'model.cfg').write_text('[mesh]\nmesh.o3d\n')
-        (self.hum.parent/'mesh.o3d').write_bytes(b'mesh')
+        # Valid empty material table; these tests exercise catalogue transactions.
+        (self.hum.parent/'mesh.o3d').write_bytes(b'\x84\x19\x01\x26\x00\x00')
         self.item=self.lib.add(self.hum)
 
     def tearDown(self):self.temp.cleanup()

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Assemble official Windows binaries without executing them on the build host.
 
 Inputs: build/python-3.12.10-embed-amd64.zip and build/windows-wheels/.
@@ -11,7 +13,7 @@ from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT = Path(__file__).resolve().parent.parent
-NAME = 'OMSI-Mod-Studio-Windows-x64'
+NAME = 'omsipmxtool-Windows-x64'
 
 
 def main():
@@ -19,7 +21,8 @@ def main():
     wheels = []
     for pattern in ('pyside6_essentials-6.12.0-*-win_amd64.whl',
                     'shiboken6-6.12.0-*-win_amd64.whl',
-                    'pillow-12.3.0-cp312-cp312-win_amd64.whl'):
+                    'pillow-12.3.0-cp312-cp312-win_amd64.whl',
+                    'pypinyin-0.55.0-py2.py3-none-any.whl'):
         matches = list((ROOT/'build/windows-wheels').glob(pattern))
         if len(matches) != 1:
             raise RuntimeError('Expected one wheel: '+pattern)
@@ -27,6 +30,7 @@ def main():
     dist = ROOT/'dist';dist.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dist, prefix='.windows-build-') as temp:
         package = Path(temp)/NAME;package.mkdir()
+        shutil.copy2(ROOT/'MODEL-RIGHTS.txt', package/'MODEL-RIGHTS.txt')
         python = package/'runtime';python.mkdir()
         with ZipFile(runtime) as archive:archive.extractall(python)
         site = python/'Lib/site-packages';site.mkdir(parents=True)
@@ -45,7 +49,7 @@ def main():
             b'"%~dp0runtime\\python.exe" -c "from PySide6.QtWidgets import QApplication; from omsimod.gui import Window; from PIL import Image; a=QApplication([]); w=Window(); print(\'GUI imports and construction OK\'); w.close()"\r\n'
             b'pause\r\n')
         (package/'README.txt').write_text(
-            'OMSI Mod Studio - Windows x64 portable build\n\n'
+            'omsipmxtool - Windows x64 portable build\n\n'
             'Extract the WHOLE ZIP before running Start.bat.\n'
             'Target: Windows 10/11 x64. Python installation is not required.\n'
             'Keep the console open while using the application. Errors remain visible.\n'

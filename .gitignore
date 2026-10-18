@@ -31,3 +31,6 @@ Desktop.ini
 /Humans/
 /Vehicles/
 /maps/
+
+# Local promotional images and upstream logos are not release assets.
+/output/

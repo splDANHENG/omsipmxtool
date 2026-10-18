@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Failure injection for installation and map transactions; no game files touched."""
 import json
 import threading

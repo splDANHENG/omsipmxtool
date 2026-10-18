@@ -1,0 +1,90 @@
+omsipmxtool — 来源、版权与第三方许可
+整理日期：2026-10-18
+
+1. 本项目授权范围
+
+本项目中有权授权的新增代码、测试、构建脚本、文档及 assets/studio.png、
+assets/studio.icns 按 GNU AGPL 第 3 版（仅该版本，AGPL-3.0-only）发布，
+但 omsimod/pmx.py 按下述 GPL-3.0-or-later 处理。主许可全文见 LICENSE。
+项目贡献署名：omsipmxtool contributors。该署名不声称拥有第三方代码或模型。
+
+作为组合分发的许可表达式为 AGPL-3.0-only AND GPL-3.0-or-later。
+GPLv3 第 13 条允许与 AGPLv3 作品组合；GPL 来源部分保留其许可，不能将其
+重新标成仅 AGPL。适用的版权与许可声明应保留。全文见 LICENSES/GPL-3.0.txt。
+
+用户提供的 PMX、贴图、HUM/O3D、车辆、地图、游戏程序及第三方商标不属于
+本项目软件许可证的授权范围。MODEL-RIGHTS.txt 的用途建议不改变开源许可。
+
+2. OpenOMSI：实现参考与改写
+
+上游：https://github.com/openOMSI-org/openOMSI
+主要参考版本：1ca88e6bb6c5d70c9b690978a7e26a8ac5096710
+许可：AGPL-3.0-only，另有各文件自己的声明时从其声明。
+上游完整许可及历史版权、MIT 许可和商标声明原样保存在：
+LICENSES/OpenOMSI-1ca88e6-LICENSE.txt
+该文件与固定版本上游 LICENSE 的 SHA-256：
+4cfc1a0e645c6506a80022ac1423d598e0a4a27d62ebd3d8d96b518278b74525
+历史 MIT 声明不能解释为该指定版本整体可任选 MIT。
+
+相关位置与本项目改动：
+- omsimod/rig.py：参照 crates/omsi-sim/src/human/avatar.rs 与 rig.rs 的
+  13 槽人体骨架和 A→T 姿态处理，按参考并改写实现登记；使用 Python、
+  Rodrigues 旋转、PMX 骨骼识别、权重合并和 D 腿链处理，并增加校验。
+- omsimod/export.py：O3D/HUM 兼容接口、links 排列、setbone 槽和成人男性
+  walk_param 默认值参考 avatar.rs、rig.rs 和 docs/FORMATS.md。
+- omsimod/resources.py：O3D 段格式参考同版本 docs/FORMATS.md；本地增加
+  有界读取和独立包贴图依赖检查，不是完整 O3D 校验器。
+- omsimod/library.py、manager.py：地图司机选择机制参考
+  crates/omsi-scene/src/driver.rs；角色库、锁、备份和恢复为本项目实现。
+
+另外阅读了 OpenOMSI v0.3.33 提交
+741e1bc9363479315aaa1cdfb6bf21839b4735ee 的司机／动作相关代码，用于诊断
+坐姿和游戏行为；缓存不随源码包分发。版本差异不能视为兼容性保证。
+
+固定版本许可链接：
+https://github.com/openOMSI-org/openOMSI/blob/1ca88e6bb6c5d70c9b690978a7e26a8ac5096710/LICENSE
+
+3. MMD Tools：PMX 读取参考
+
+上游：https://github.com/MMD-Blender/blender_mmd_tools
+可复现内容定位提交：e1ceb3e5944acdb3aecc97ff40f54737853ae215
+参考文件：mmd_tools/core/pmx/__init__.py、mmd_tools/core/pmx/importer.py。
+原版权声明：Copyright 2014 MMD Tools authors（PMX 读取器文件头）；
+Copyright 2012 MMD Tools authors（项目入口文件头）。
+许可：GNU General Public License version 3 or, at your option, any later version。
+全文：LICENSES/GPL-3.0.txt。
+
+开发历史审查确认曾阅读上述实现后编写 omsimod/pmx.py；未确认逐行复制，
+但无法排除实现层改写。因此保守地将该文件按 GPL-3.0-or-later 发布，并保留
+原作者署名。改动包括精简为几何／材质／骨骼前缀读取、dataclass 数据结构、
+边界及有限值校验、只读元信息入口和材质面计数修复。本项目不是 MMD Tools。
+GUI 的 0.08 默认比例另参考 MMD Tools 导入器的惯用比例，并非真实身高保证。
+
+4. 运行及构建依赖（独立授权，不是本项目重新许可）
+
+组件                  本次本地版本   许可／来源及说明
+Python                3.14.0         PSF 及附带许可；python.org；LICENSES/Python-3.14.0.txt
+Pillow                12.3.0         MIT-CMU 及捆绑库条款；python-pillow.org；
+                                     LICENSES/Pillow-12.3.0.txt 保留完整复合声明
+pypinyin              0.55.0         MIT；github.com/mozillazg/python-pinyin；
+                                     LICENSES/pypinyin-0.55.0.txt
+PySide6 / Shiboken6    6.12.0         LGPL-3.0 / GPL / 商业许可，按实际组件适用；
+                                     doc.qt.io/qtforpython-6/licenses.html
+Qt                    随 PySide6     各模块分别适用许可；doc.qt.io/qt-6/licensing.html
+PyInstaller           6.22.3         GPL-2.0-or-later 含 bootloader 分发例外；
+                                     LICENSES/PyInstaller-6.22.3.txt
+setuptools            构建依赖       MIT；github.com/pypa/setuptools
+
+上述源码发布仅声明依赖，不分发 Python、Qt、Pillow 等运行时二进制。
+LICENSES/LGPL-3.0.txt 是许可正文，不是完整 Qt 二进制发布合规材料。
+本地 EXE 不能凭这份清单视为已可公开发布；仍需逐项落实实际打包组件的
+许可、对应源码、构建资料和适用的库替换要求。旧便携构建脚本会解包完整
+Qt wheel，更不能直接当作已审核的二进制发行方案。
+
+5. 证据边界
+
+源头核对依据：迁移前的开发历史审查、固定提交上游文件以及本地代码审阅。
+“AI 辅助生成”不等于没有第三方来源；本清单不声称已证明全部实现独立原创。
+合成测试数据由 tests/test_converter.py 构造；未使用真实人物模型作为测试附件。
+图标据迁移前审查为 Pillow 基本图形绘制，未加载第三方图片或字体。
+宣传图片、上游图标、模型资源、调试缓存、日志、凭据和用户备份不随本次源码发布。

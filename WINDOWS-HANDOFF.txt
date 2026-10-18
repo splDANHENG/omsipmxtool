@@ -1,3 +1,7 @@
+历史交接记录（内容停留在 2026-10-17，不作为当前功能、许可或发布状态说明）
+当前资料请阅读 README.md、THIRD-PARTY-NOTICES.txt 和 RELEASE-REVIEW.txt。
+本文件中的旧名称、测试数、未实现功能和远程仓库状态均可能已经过时。
+
 OMSI Mod Studio — Windows 开发交接（2026-10-17）
 
 目标

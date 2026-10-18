@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Character catalogue, map selection and reversible game activation UI."""
 import subprocess
 import os
@@ -5,7 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import QThreadPool, QUrl, Qt
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,
-    QLineEdit,QPushButton,QFileDialog,QComboBox,QListWidget,QPlainTextEdit,QCheckBox)
+    QLineEdit,QPushButton,QFileDialog,QComboBox,QListWidget,QListWidgetItem,QPlainTextEdit,QCheckBox)
 from .library import Library,game_command
 from .paths import prepare_data_directory
 
@@ -51,13 +53,16 @@ class Manager(QWidget):
 
     def refresh(self):
         self.list.clear()
-        for item in self.library.data['characters']:self.list.addItem(item['name']+'  ·  '+Path(item['hum']).name)
+        for item in self.library.data['characters']:
+            row=QListWidgetItem(item['name']+'  ·  '+Path(item['hum']).name)
+            row.setData(Qt.ItemDataRole.UserRole, dict(item))
+            self.list.addItem(row)
         if self.list.count():self.list.setCurrentRow(0)
 
     def current(self):
-        row=self.list.currentRow()
-        if row<0:raise ValueError('请先选择角色')
-        return self.library.data['characters'][row]
+        row=self.list.currentItem()
+        if row is None:raise ValueError('请先选择角色')
+        return dict(row.data(Qt.ItemDataRole.UserRole))
 
     def selected(self,*_):
         if self.list.currentRow()>=0:

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 import json
 import math
 import struct
@@ -5,9 +7,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from PIL import Image
-from omsimod.pmx import load, ConversionError
+from omsimod.pmx import load, ConversionError, Bone
 from omsimod.rig import identify, prepare, SLOTS
 from omsimod.export import convert, bake_texture
 
@@ -21,7 +24,7 @@ def txt(s):
     return p('i', len(b))+b
 
 
-def fixture():
+def fixture(scale=1):
     bones = [('hips',(0,1,0),-1), ('spine',(0,1.2,0),0),
              ('head',(0,1.8,0),3), ('neck',(0,1.6,0),1),
              ('leftleg',(-.1,.9,0),0), ('rightleg',(.1,.9,0),0),
@@ -33,7 +36,7 @@ def fixture():
     data = b'PMX '+p('fB',2,8)+bytes([1,0,1,1,1,1,1,1])
     data += txt('Synthetic test')+txt('')*3+p('i',3)
     for pos in [(0,0,0),(0,2,0),(.1,1,0)]:
-        data += p('3f3f2fB', *pos, 0,0,-1, 0,0, 2)
+        data += p('3f3f2fB', *(v*scale for v in pos), 0,0,-1, 0,0, 2)
         data += p('4b4ff', 1,14,9,-1, .35,.25,.4,0, 1)
     data += p('i3Bi',3,0,1,2,0)  # indices then texture count
     data += p('i',1)+txt('body')+txt('')
@@ -41,7 +44,7 @@ def fixture():
     data += p('bbBBB',-1,-1,0,1,0)+txt('')+p('i',3)
     data += p('i',len(bones))
     for name,pos,parent in bones:
-        data += txt(name)+txt('')+p('3fbiH3f',*pos,parent,0,0,0,0,0)
+        data += txt(name)+txt('')+p('3fbiH3f',*(v*scale for v in pos),parent,0,0,0,0,0)
     data += p('4i',0,0,0,0) # empty morphs/display/physics (unused prefix)
     return data
 
@@ -88,6 +91,51 @@ def read_o3d(path):
 
 
 class ConverterTests(unittest.TestCase):
+    def d_leg_model(self):
+        model = load(self.source)
+        joints = identify(model, {})
+        indices = []
+        for role, name in zip(SLOTS[:4], ('左足D', '右足D', '左ひざD', '右ひざD')):
+            parent = joints['hips'] if role.endswith('thigh') else indices[0 if role.startswith('left') else 1]
+            indices.append(len(model.bones))
+            model.bones.append(Bone(name, '', model.bones[joints[role]].position, parent))
+        for name in ('右足首D', '右足先EX'):
+            parent = indices[-1]
+            indices.append(len(model.bones))
+            model.bones.append(Bone(name, '', (0.1, 0.1, 0), parent))
+        model.vertices = [replace(model.vertices[i % 3], weights=[(index, 1.0)])
+                          for i, index in enumerate(indices)]
+        model.indices = list(range(6)); model.materials[0].count = 6
+        return model, joints, indices
+
+    def test_parallel_d_legs_and_toes_keep_weights(self):
+        model, joints, indices = self.d_leg_model()
+        # A blended control/deformation weight must merge into the same slot.
+        model.vertices[0].weights = [(joints['left_thigh'], .4), (indices[0], .6)]
+        _, _, weights, _ = prepare(model, joints, 1.75)
+        self.assertEqual(weights, [{0:1.0},{1:1.0},{2:1.0},{3:1.0},{3:1.0},{3:1.0}])
+        output = self.root/'d-legs'
+        report = convert(model, self.source, output, 'DLegs', 1.75, {})
+        self.assertEqual([report['weighted_vertices_by_bone'][s] for s in SLOTS[:4]], [1,1,1,3])
+        read_o3d(output/'Humans/DLegs/model/body_0000.o3d')
+
+    def test_d_only_legs_and_unrelated_d_bone(self):
+        model, joints, indices = self.d_leg_model()
+        for role in SLOTS[:4]:
+            model.bones[joints[role]].name = 'unused_' + role
+        found = identify(model, {})
+        self.assertEqual([found[r] for r in SLOTS[:4]], indices[:4])
+        model.bones.append(Bone('HairD', '', (0,2,0), found['head']))
+        model.vertices[0].weights = [(len(model.bones)-1,1)]
+        weights = prepare(model, found, 1.75)[2]
+        self.assertEqual(weights[0], {SLOTS.index('head'):1.0})
+
+    def test_d_leg_pivot_mismatch_is_not_silently_merged(self):
+        model, joints, indices = self.d_leg_model()
+        model.bones[indices[0]].position = (99,99,99)
+        with self.assertRaisesRegex(ConversionError, 'different rest position'):
+            prepare(model, joints, 1.75)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Character catalogue and reversible per-map activation (no engine patch)."""
 import json
 import shutil
@@ -8,6 +10,8 @@ import tempfile
 import threading
 from functools import wraps
 from pathlib import Path
+from .locking import catalogue_lock
+from .resources import mesh_textures, require_texture
 
 
 def digest(data):
@@ -35,7 +39,17 @@ def atomic_write(path, data):
 def serialized(fn):
     @wraps(fn)
     def call(self,*args,**kwargs):
-        with self.lock:return fn(self,*args,**kwargs)
+        with self.lock:
+            if self._transaction_depth:
+                return fn(self,*args,**kwargs)
+            with catalogue_lock(self.directory/'library.lock'):
+                if fn.__name__ != 'save':
+                    self.reload()
+                self._transaction_depth += 1
+                try:
+                    return fn(self,*args,**kwargs)
+                finally:
+                    self._transaction_depth -= 1
     return call
 
 
@@ -60,6 +74,22 @@ def read_text(path):
     except UnicodeDecodeError: return data.decode('cp1252')
 
 
+def prepend_driver(original, relative):
+    """Keep existing paths byte-for-byte; do not guess GBK versus Western ANSI."""
+    for bom, encoding in ((b'\xff\xfe','utf-16-le'), (b'\xfe\xff','utf-16-be'),
+                          (b'\xef\xbb\xbf','utf-8')):
+        if original.startswith(bom):
+            return bom + (relative+'\r\n').encode(encoding) + original[len(bom):]
+    try:
+        prefix=(relative+'\r\n').encode('ascii')
+    except UnicodeEncodeError:
+        try: original.decode('utf-8')
+        except UnicodeDecodeError as exc:
+            raise ValueError('旧司机列表编码不明确，请将 HUM 文件名改为英文或拼音后再应用。') from exc
+        prefix=(relative+'\r\n').encode('utf-8')
+    return prefix + original
+
+
 def local_file(base, value):
     root=base.resolve(); path=(base/value.replace('\\','/')).resolve()
     if not path.is_relative_to(root) or not path.is_file():
@@ -80,6 +110,16 @@ def validate_hum(path):
             if i+1>=len(lines):raise ValueError('[mesh] 缺少文件名')
             meshes.append(local_file(model.parent,lines[i+1]))
     if not meshes:raise ValueError('模型配置没有 [mesh]')
+    for mesh in meshes:
+        for texture in mesh_textures(mesh):
+            require_texture(path.parent,mesh.parent,texture)
+    for i,line in enumerate(lines):
+        if line.strip() in ('[matl]','[matl_change]','[matl_nightmap]',
+                            '[matl_lightmap]','[matl_bumpmap]','[matl_transmap]','[matl_envmap]'):
+            if i+1>=len(lines):raise ValueError('材质配置缺少贴图文件名')
+            texture=lines[i+1].strip()
+            if texture and not texture.startswith('\\S:'):
+                require_texture(path.parent,model.parent,texture)
     # Do not copy symlinks or external data accidentally.
     if any(f.is_symlink() for f in path.parent.rglob('*')):
         raise ValueError('当前仅支持不含符号链接的独立人物目录')
@@ -89,14 +129,24 @@ def validate_hum(path):
 class Library:
     def __init__(self,directory):
         self.lock=threading.RLock()
+        self._transaction_depth=0
         self.directory=Path(directory)
         self.directory.mkdir(parents=True,exist_ok=True)
         self.path=self.directory/'library.json'
-        self.data=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'characters':[],'settings':{}}
+        self.reload()
+
+    def reload(self):
+        self._loaded_bytes=self.path.read_bytes() if self.path.exists() else None
+        self.data=json.loads(self._loaded_bytes.decode('utf-8')) if self._loaded_bytes is not None else {'characters':[],'settings':{}}
 
     @serialized
     def save(self):
-        atomic_write(self.path,json.dumps(self.data,ensure_ascii=False,indent=2).encode('utf-8'))
+        current=self.path.read_bytes() if self.path.exists() else None
+        if current != self._loaded_bytes:
+            raise ValueError('角色库已被其他程序更新，请刷新后重试，未覆盖新数据。')
+        encoded=json.dumps(self.data,ensure_ascii=False,indent=2).encode('utf-8')
+        atomic_write(self.path,encoded)
+        self._loaded_bytes=encoded
 
     @serialized
     def settings(self,values):
@@ -197,12 +247,8 @@ class Library:
         hum=self.install(item,root)
         target=hum.parent
         original=bytes.fromhex(state['original_hex']) if state['original_hex'] is not None else b''
-        if original.startswith((b'\xff\xfe',b'\xfe\xff')): text=original.decode('utf-16')
-        else:
-            try:text=original.decode('utf-8-sig')
-            except UnicodeDecodeError:text=original.decode('cp1252')
         rel=f'Humans\\{target.name}\\{hum.name}'
-        new=(rel+'\r\n'+text).encode('utf-8')
+        new=prepend_driver(original, rel)
         state['applied_hash']=digest(new)
         state['before_hash']=fingerprint(old)
         state['pending']=True

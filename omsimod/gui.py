@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Cross-platform Qt desktop front end; converters run off the UI thread."""
 import json
 import sys
@@ -6,9 +8,32 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, QUrl, Qt
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QDoubleSpinBox,
-    QPlainTextEdit, QProgressBar, QFrame, QFormLayout, QTabWidget, QCheckBox)
-from .pmx import load
-from .export import convert
+    QPlainTextEdit, QProgressBar, QFrame, QFormLayout, QTabWidget, QCheckBox,
+    QScrollArea)
+from .pmx import load, read_metadata
+from .model_notice import ModelNotice
+from .naming import pinyin_name
+from .export import convert, character_name
+
+
+def pmx_height(model):
+    # Conventional MMD scale; PMX has no authoritative real-world height field.
+    if not model.vertices:
+        raise ValueError('模型没有顶点，无法读取高度。')
+    ys = [v.position[1] for v in model.vertices]
+    return (max(ys) - min(ys)) * 0.08
+
+
+def export_destination(root, name):
+    folder = Path(root).resolve() / 'omsipmxtool_exports'
+    candidate = folder / character_name(name)
+    index = 2
+    while candidate.exists():
+        candidate = folder / f'{character_name(name)}_{index}'
+        index += 1
+    if not candidate.resolve().is_relative_to(Path(root).resolve()):
+        raise ValueError('统一导出目录必须位于 OMSI 安装目录内。')
+    return candidate
 
 
 class Events(QObject):
@@ -31,7 +56,7 @@ class Work(QRunnable):
 
 def inspect_model(path):
     model = load(path)
-    return {'name': model.name, 'vertices': len(model.vertices),
+    return {'name': model.name, 'estimated_height': pmx_height(model), 'vertices': len(model.vertices),
             'triangles': len(model.indices)//3, 'materials': len(model.materials),
             'bones': [{'name': b.name, 'english': b.english, 'parent': b.parent}
                       for b in model.bones], 'warnings': model.warnings}
@@ -41,7 +66,15 @@ def convert_model(source, output, name, height, mapping):
     overrides = json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {}
     if not isinstance(overrides, dict):
         raise ValueError('骨骼映射必须是 JSON 对象。')
-    return convert(load(source), source, output, name, height, overrides)
+    model = load(source)
+    automatic = height is None
+    if automatic:
+        height = pmx_height(model)
+        if not 0.5 <= height <= 3:
+            raise ValueError(f'自动估算高度 {height:.3f} m 超出人物范围，请取消自动读取并手动设置模型总高度。')
+    report = convert(model, source, output, name, height, overrides)
+    report['height_mode'] = 'mmd_bounds_0.08' if automatic else 'manual'
+    return report
 
 
 def convert_and_install(source, output, name, height, mapping, library, game_root):
@@ -71,7 +104,7 @@ def convert_and_install(source, output, name, height, mapping, library, game_roo
 
 STYLE = '''
 QWidget { font-family: ".AppleSystemUIFont", "Segoe UI", sans-serif; font-size: 13px; color: #dce5f1; }
-QMainWindow, #root, #manager { background: #101720; }
+QMainWindow, QDialog, #root, #manager { background: #101720; }
 QFrame#card { background: #182330; border: 1px solid #2a394b; border-radius: 12px; }
 QLabel#title { font-size: 29px; font-weight: 700; color: #ffffff; }
 QLabel#eyebrow { color: #65d7bd; font-weight: 600; letter-spacing: 2px; }
@@ -99,27 +132,32 @@ QToolTip { color: #101720; background: #e3eef7; }
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('OMSI Mod Studio · PMX 转换器')
+        self.setWindowTitle('omsipmxtool · PMX 转换器')
         self.resize(940, 810)
         self.setMinimumSize(760, 700)
         self.pool = QThreadPool(self)
         self.work = None
         self.busy = False
         self.last_output = None
+        self.accepted_source = None
+        self.review_open = False
         from .manager import Manager
         self.manager = Manager()
         tabs = QTabWidget(); self.setCentralWidget(tabs)
         root = QWidget(); root.setObjectName('root')
-        tabs.addTab(root, 'PMX 转换'); tabs.addTab(self.manager, '角色库与游戏')
+        scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame); scroll.setWidget(root)
+        tabs.addTab(scroll, 'PMX 转换'); tabs.addTab(self.manager, '角色库与游戏')
         page = QVBoxLayout(root); page.setContentsMargins(30, 26, 30, 24); page.setSpacing(16)
-        eyebrow = QLabel('OMSI MOD STUDIO  /  EXPERIMENTAL'); eyebrow.setObjectName('eyebrow'); page.addWidget(eyebrow)
+        eyebrow = QLabel('omsipmxtool  /  EXPERIMENTAL'); eyebrow.setObjectName('eyebrow'); page.addWidget(eyebrow)
         title = QLabel('让你的角色坐上驾驶座'); title.setObjectName('title'); page.addWidget(title)
         subtitle = QLabel('PMX → OpenOMSI 人物包  ·  自动安装到游戏  ·  一键应用司机'); subtitle.setObjectName('muted'); page.addWidget(subtitle)
         self.form_card = QFrame(); self.form_card.setObjectName('card')
         form = QVBoxLayout(self.form_card); form.setContentsMargins(20,18,20,18); form.setSpacing(12)
         heading = QLabel('01  导入与设置'); heading.setObjectName('section'); form.addWidget(heading)
         self.source = QLineEdit(); self.source.setPlaceholderText('选择人物 .pmx 文件（贴图保留在模型目录中）')
-        self.output = QLineEdit(); self.output.setPlaceholderText('选择父目录后，自动创建新的角色包文件夹')
+        self.output = QLineEdit(); self.output.setReadOnly(True)
+        self.output.setPlaceholderText('选择 OMSI 目录和 PMX 后自动生成')
         self.mapping = QLineEdit(); self.mapping.setPlaceholderText('可选 · 骨骼识别失败时指定 JSON 映射')
         self.game_root = QLineEdit(self.manager.root.text())
         self.game_root.setPlaceholderText('选择包含 maps 和 Vehicles 的 OMSI 安装 / 内容目录')
@@ -128,17 +166,24 @@ class Window(QMainWindow):
         fields = QFormLayout(); fields.setSpacing(10)
         for label, edit, caption, callback in [
             ('人物模型', self.source, '选择 PMX', self.pick_source),
-            ('输出目录', self.output, '选择位置', self.pick_output),
             ('骨骼映射', self.mapping, '选择 JSON', self.pick_mapping),
             ('OMSI 目录', self.game_root, '选择目录', self.manager.pick_root)]:
             row = QHBoxLayout(); row.addWidget(edit,1)
             button = QPushButton(caption); button.clicked.connect(callback); row.addWidget(button)
             fields.addRow(label,row)
+        fields.addRow('统一导出目录', self.output)
         row = QHBoxLayout()
-        self.name = QLineEdit('CustomDriver'); self.name.setToolTip('英文字母开头，仅含字母、数字、下划线或连字符')
+        self.name = QLineEdit('CustomDriver'); self.name.setToolTip('从 PMX 文件名自动生成拼音标识，可手动修改；中文转拼音，英文和数字保留')
         self.height = QDoubleSpinBox(); self.height.setRange(.5,3); self.height.setValue(1.75); self.height.setSingleStep(.05); self.height.setSuffix(' m'); self.height.setDecimals(2)
         row.addWidget(self.name,1); row.addWidget(QLabel('模型总高度')); row.addWidget(self.height)
         fields.addRow('角色标识',row); form.addLayout(fields)
+        self.auto_height = QCheckBox('从 PMX 自动估算高度（可取消后手动调整）')
+        self.auto_height.setChecked(True); self.height.setEnabled(False)
+        self.auto_height.toggled.connect(lambda enabled: self.height.setEnabled(not enabled))
+        self.auto_height.toggled.connect(self.height_mode_changed)
+        form.addWidget(self.auto_height)
+        self.height_note = QLabel('按完整网格高度 × 0.08 换算为米，包含头发和饰品；非标准比例请手动调整。')
+        self.height_note.setWordWrap(True); self.height_note.setObjectName('muted'); form.addWidget(self.height_note)
         self.auto_install = QCheckBox('转换后自动安装到 OMSI（包含 HUM、模型和贴图）')
         self.auto_install.setChecked(True)
         form.addWidget(self.auto_install)
@@ -157,15 +202,51 @@ class Window(QMainWindow):
         self.open_button = QPushButton('打开输出文件夹'); self.open_button.setEnabled(False); self.open_button.clicked.connect(self.open_output)
         foot = QLabel('实验版 0.2 · 文件转换成功不代表游戏内验证通过'); foot.setObjectName('muted')
         footer.addWidget(foot,1); footer.addWidget(self.open_button); page.addLayout(footer)
+        self.source.textChanged.connect(self.source_changed)
+        self.source.editingFinished.connect(self.inspect_source_if_needed)
+        self.name.textChanged.connect(self.update_output)
+        self.game_root.textChanged.connect(self.update_output)
+        self.inspected_source = None
+        self.update_output()
+        # Nested form rows can otherwise shrink below their styled size hint,
+        # leaving no room for text after padding on a short/high-DPI screen.
+        # Let the page scroll instead of squeezing the input controls.
+        controls = [control for kind in (QLineEdit, QDoubleSpinBox, QPushButton)
+                    for control in self.form_card.findChildren(kind)]
+        for control in controls:
+            if isinstance(control.parentWidget(), QDoubleSpinBox):
+                continue
+            control.ensurePolished()
+            control.setMinimumHeight(control.sizeHint().height())
 
     def pick_source(self):
         path,_ = QFileDialog.getOpenFileName(self,'选择 PMX 人物',self.source.text(),'PMX 模型 (*.pmx);;所有文件 (*)')
-        if path: self.source.setText(path)
-
-    def pick_output(self):
-        path = QFileDialog.getExistingDirectory(self,'选择输出父目录')
         if path:
-            self.output.setText(str(Path(path)/(self.name.text().strip() or 'CustomDriver')))
+            self.accepted_source = None
+            self.source.setText(path)
+            self.inspect_source_if_needed()
+
+    def source_changed(self, text):
+        self.accepted_source = None
+        self.inspected_source = None
+        self.name.setText(pinyin_name(Path(text).stem))
+        self.height_note.setText('等待读取 PMX 高度；按完整网格 × 0.08 换算，包含头发和饰品。')
+
+    def update_output(self, *_):
+        try:
+            destination = export_destination(self.game_root.text().strip(), self.name.text()) if self.game_root.text().strip() else None
+            self.output.setText(str(destination) if destination else '')
+        except (ValueError, OSError):
+            self.output.clear()
+
+    def inspect_source_if_needed(self):
+        if self.source.text().strip() and self.inspected_source != self.source.text() and not self.busy and not self.manager.busy:
+            self.inspect()
+
+    def height_mode_changed(self, enabled):
+        if enabled:
+            self.inspected_source = None
+            self.inspect_source_if_needed()
 
     def pick_mapping(self):
         path,_ = QFileDialog.getOpenFileName(self,'选择骨骼映射','','JSON (*.json)')
@@ -176,6 +257,31 @@ class Window(QMainWindow):
         path = Path(self.source.text().strip()).expanduser()
         if not path.is_file(): raise ValueError('PMX 文件不存在，请检查路径。')
         return path
+
+    def review_source(self, source):
+        if self.review_open:
+            return False
+        info = source.stat()
+        signature = (str(source.resolve()), info.st_size, info.st_mtime_ns)
+        if signature == self.accepted_source:
+            return True
+        metadata = read_metadata(source)
+        if not metadata['comment'].strip() and not metadata['english_comment'].strip():
+            self.accepted_source = signature
+            return True
+        self.review_open = True
+        try:
+            accepted = ModelNotice(metadata, self).exec() == ModelNotice.DialogCode.Accepted
+        finally:
+            self.review_open = False
+        if not accepted:
+            self.status.setText('已取消：尚未确认 PMX 内嵌说明，不会读取模型或转换。')
+            return False
+        after = source.stat()
+        if (after.st_size, after.st_mtime_ns) != (info.st_size, info.st_mtime_ns):
+            raise ValueError('PMX 在阅读期间发生变化，请重新选择并阅读说明。')
+        self.accepted_source = signature
+        return True
 
     def start(self, function, callback, message):
         if self.busy or self.manager.busy: return
@@ -201,11 +307,21 @@ class Window(QMainWindow):
         self.log.setPlainText(message)
 
     def inspect(self):
-        try: source = self.source_path()
-        except ValueError as exc: self.failed(str(exc)); return
+        if self.busy or self.manager.busy: return
+        try:
+            source = self.source_path()
+            if not self.review_source(source): return
+        except (ValueError, OSError) as exc: self.failed(str(exc)); return
         self.start(lambda: inspect_model(source), self.inspected, '正在读取模型与骨骼…')
 
     def inspected(self, result):
+        self.inspected_source = self.source.text()
+        estimate = result['estimated_height']
+        if 0.5 <= estimate <= 3:
+            if self.auto_height.isChecked(): self.height.setValue(estimate)
+            self.height_note.setText(f'PMX 完整网格估算：{estimate:.3f} m（含头发 / 饰品，按 0.08 换算；可手动调整）。')
+        else:
+            self.height_note.setText(f'估算高度 {estimate:.3f} m 超出 0.5–3 m，请取消自动读取并手动设置。')
         self.finish(); self.status.setText('模型读取完成 · '+result['name'])
         self.summary.setText(f"{result['vertices']:,} 顶点  /  {result['triangles']:,} 三角形  /  {len(result['bones'])} 骨骼  /  {result['materials']} 材质")
         self.log.setPlainText(json.dumps(result,ensure_ascii=False,indent=2))
@@ -215,14 +331,16 @@ class Window(QMainWindow):
             self.status.setText('请等待当前转换或游戏应用任务完成。');return
         try:
             source = self.source_path()
-            if not self.output.text().strip(): raise ValueError('请选择输出目录。')
-            output = Path(self.output.text().strip()).expanduser()
-            if output.exists(): raise ValueError('输出目录已存在。请选择一个新文件夹，已有文件不会被覆盖。')
-            name, height = self.name.text().strip(), self.height.value()
+            if not self.review_source(source): return
+            root = self.manager.content_root()
+            name = pinyin_name(self.name.text())
+            self.name.setText(name)
+            output = export_destination(root, name)
+            self.output.setText(str(output))
+            height = None if self.auto_height.isChecked() else self.height.value()
             mapping = Path(self.mapping.text().strip()).expanduser() if self.mapping.text().strip() else None
-            game_root = self.manager.content_root() if self.auto_install.isChecked() else None
-            if game_root is not None:
-                self.manager.library.settings({'root': str(game_root)})
+            game_root = root if self.auto_install.isChecked() else None
+            self.manager.library.settings({'root': str(root)})
         except (ValueError, OSError) as exc: self.failed(str(exc)); return
         self.pending_output = output
         self.start(lambda: convert_and_install(source,output,name,height,mapping,self.manager.library,game_root),
@@ -230,6 +348,9 @@ class Window(QMainWindow):
 
     def converted(self, report):
         self.last_output = self.pending_output.resolve()
+        if report.get('height_mode') == 'mmd_bounds_0.08':
+            self.height.setValue(report['height'])
+            self.height_note.setText(f"本次自动使用模型总高度：{report['height']:.3f} m（完整网格 × 0.08）。")
         self.manager.refresh()
         if report.get('library_id'):self.manager.select_item(report['library_id'])
         self.finish()
@@ -258,8 +379,11 @@ class Window(QMainWindow):
 
 def main():
     app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationName('OMSI Mod Studio')
+    app.setApplicationName('omsipmxtool')
     app.setStyle('Fusion'); app.setStyleSheet(STYLE)
+    from .startup_notice import require_startup_notice
+    if not require_startup_notice():
+        return 0
     window = Window(); window.show()
     return app.exec()
 

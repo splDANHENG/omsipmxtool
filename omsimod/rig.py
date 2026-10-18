@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 omsipmxtool contributors
 """Explicit 13-slot rig reduction; PMX model space is kept until O3D export."""
 import math
 import unicodedata
@@ -27,6 +29,15 @@ def norm(s):
     return ''.join(c for c in unicodedata.normalize('NFKC', s).casefold() if c not in ' _.-')
 
 
+def leg_deform_bones(model, role):
+    """Exact named D counterparts, not arbitrary bones ending in D."""
+    if role not in ('left_thigh', 'right_thigh', 'left_shin', 'right_shin'):
+        return []
+    names = {norm(name + 'D') for name in ALIASES[role]}
+    return [i for i, bone in enumerate(model.bones)
+            if norm(bone.name) in names or norm(bone.english) in names]
+
+
 def identify(model, overrides):
     unknown = set(overrides) - set(ALIASES)
     if unknown:
@@ -42,6 +53,8 @@ def identify(model, overrides):
             names = {norm(n) for n in aliases}
             hits = [i for i, b in enumerate(model.bones)
                     if norm(b.name) in names or norm(b.english) in names]
+            if not hits:
+                hits = leg_deform_bones(model, role)
         if len(hits) != 1:
             raise ConversionError(f'{role}: expected one bone, found {len(hits)}. Use --mapping JSON; inspect lists names.')
         result[role] = hits[0]
@@ -93,6 +106,21 @@ def prepare(model, joints, height):
     # Neck and its descendants follow the head; other extra bones follow nearest
     # mapped ancestor. No physics is retained.
     direct[joints['neck']] = SLOTS.index('head')
+    # MMD D legs form a parallel deformation chain under the hips, rather
+    # than descendants of the ordinary leg controls. Anchor both chains so
+    # ankles, toes and other descendants inherit the correct lower-leg slot.
+    for role in ('left_thigh', 'right_thigh', 'left_shin', 'right_shin'):
+        deform = leg_deform_bones(model, role)
+        if len(deform) > 1:
+            raise ConversionError(f'{role}: ambiguous D deformation bones')
+        for index in deform:
+            slot = SLOTS.index(role)
+            if index in direct and direct[index] != slot:
+                raise ConversionError(f'{role}: D bone conflicts with the selected mapping')
+            # Different rest pivots need an explicit rebind, not silent merging.
+            if length(sub(positions[index], positions[joints[role]])) > 1e-4:
+                raise ConversionError(f'{role}: D bone has a different rest position; map this role to {model.bones[index].name}')
+            direct[index] = slot
     mapping, fallback = [], []
     for i, bone in enumerate(model.bones):
         k = i
@@ -114,6 +142,10 @@ def prepare(model, joints, height):
                 total[slot] = total.get(slot, 0) + w
         denom = sum(total.values())
         weights.append({k: w/denom for k, w in total.items()})
+    empty_legs = [role for role in SLOTS[:4]
+                  if not any(w.get(SLOTS.index(role), 0) > 0 for w in weights)]
+    if empty_legs:
+        model.warnings.append('Leg bones have no vertex weights; leg animation cannot deform these parts: ' + ', '.join(empty_legs))
     verts = [v.position for v in model.vertices]
     normals = [v.normal for v in model.vertices]
     # Bake each arm as a weighted rigid rotation into a horizontal T pose.
