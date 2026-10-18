@@ -162,6 +162,27 @@ class ConverterTests(unittest.TestCase):
         found = identify(model, {role: '左足D'})
         prepare(model, found, 1.75)
 
+    def test_offset_d_selection_preserves_both_leg_chains(self):
+        model, joints, indices = self.d_leg_model()
+        for role, index in zip(SLOTS[:4], indices[:4]):
+            x, y, z = model.bones[index].position
+            model.bones[index].position = (x, y + .02, z)
+        # Ordinary controls, mixed weights and ordinary ankle descendants.
+        model.vertices[0].weights = [(joints['left_thigh'], 1)]
+        model.vertices[1].weights = [(joints['right_thigh'], .4), (indices[1], .6)]
+        model.vertices[2].weights = [(joints['left_shin'], 1)]
+        model.vertices[3].weights = [(joints['right_shin'], 1)]
+        model.bones.append(Bone('ordinary_ankle', '', (0.1,.1,0), joints['right_shin']))
+        model.vertices[4].weights = [(len(model.bones)-1, 1)]
+        for overrides in ({}, {'left_thigh': '左足D'}):
+            found = identify(model, overrides)
+            self.assertEqual(prepare(model, found, 1.75)[2],
+                             [{0:1.0},{1:1.0},{2:1.0},{3:1.0},{3:1.0},{3:1.0}])
+        out = self.root/'mixed-offset'
+        report = convert(model, self.source, out, 'Mixed', 1.75, {})
+        self.assertEqual([report['weighted_vertices_by_bone'][r] for r in SLOTS[:4]], [1,1,1,3])
+        read_o3d(out/'Humans/Mixed/model/body_0000.o3d')
+
     def test_coincident_d_legs_keep_original_selection(self):
         model, joints, _ = self.d_leg_model()
         self.assertEqual(identify(model, {}), joints)

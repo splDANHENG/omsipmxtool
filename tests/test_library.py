@@ -60,6 +60,45 @@ class LibraryTests(unittest.TestCase):
         (self.hum.parent/'mesh.o3d').unlink()
         with self.assertRaises(ValueError):self.lib.add(self.hum)
 
+    def make_link(self, source, target):
+        import os
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(target), str(source))
+        else:
+            source.symlink_to(target, target_is_directory=True)
+
+    def test_reject_external_directory_link_before_import_or_install(self):
+        from omsimod.library import validate_hum
+        outside = self.base/'outside'; outside.mkdir()
+        (outside/'private.txt').write_text('synthetic marker')
+        link = self.hum.parent/'extra'
+        self.make_link(link, outside)
+        try:
+            with self.assertRaises(ValueError): validate_hum(self.hum)
+            # The catalogue predates the injected link; install must recheck.
+            with self.assertRaises(ValueError): self.lib.install(self.item, self.root)
+            self.assertFalse((self.root/'Humans'/('OMSIMod_'+self.item['id'])).exists())
+            self.assertEqual((outside/'private.txt').read_text(), 'synthetic marker')
+        finally:
+            if link.is_symlink(): link.unlink()
+            else: link.rmdir()
+
+    def test_reject_install_destination_link(self):
+        outside = self.base/'outside'; outside.mkdir()
+        link = self.root/'Humans'
+        self.make_link(link, outside)
+        try:
+            with self.assertRaises(ValueError): self.lib.install(self.item, self.root)
+            self.assertEqual(list(outside.iterdir()), [])
+        finally:
+            if link.is_symlink(): link.unlink()
+            else: link.rmdir()
+
+    def test_reject_invalid_catalogue_id(self):
+        item = dict(self.item, id='../outside')
+        with self.assertRaises(ValueError): self.lib.install(item, self.root)
+
     def test_refuse_map_escape(self):
         with self.assertRaises(ValueError):self.lib.activate(self.item,self.root,'../../elsewhere')
 

@@ -134,6 +134,19 @@ def prepare(model, joints, height):
             if length(sub(positions[index], positions[joints[role]])) > 1e-4:
                 raise ConversionError(f'{role}: D bone has a different rest position; map this role to {model.bones[index].name}')
             direct[index] = slot
+        # Selecting a D pivot must retain the ordinary parallel control chain's
+        # weights too. The selected D joint remains the exported rest pivot.
+        if joints[role] in deform:
+            names = {norm(name) for name in ALIASES[role]}
+            ordinary = [i for i, bone in enumerate(model.bones)
+                        if norm(bone.name) in names or norm(bone.english) in names]
+            if len(ordinary) > 1:
+                raise ConversionError(f'{role}: ambiguous ordinary leg bones')
+            for index in ordinary:
+                slot = SLOTS.index(role)
+                if index in direct and direct[index] != slot:
+                    raise ConversionError(f'{role}: ordinary leg conflicts with the selected mapping')
+                direct[index] = slot
     mapping, fallback = [], []
     for i, bone in enumerate(model.bones):
         k = i

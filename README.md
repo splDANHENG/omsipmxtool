@@ -14,9 +14,17 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 快速入口：[详细使用说明](#详细使用说明) · [显示司机手臂](#在驾驶视角显示司机手臂) · [从源码运行](#从源码运行) · [版权声明](#模型版权与使用声明) · [问题反馈](#已知问题与反馈)
 
-**Windows 下载：[v0.3.0 实验版](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.0)**。下载 `omsipmxtool-0.3.0-windows-x64.zip`，完整解压后运行 `omsipmxtool.exe`；请保留同目录的 `_internal` 文件夹，无需安装 Python。程序尚未进行代码签名。
+**Windows 下载：[v0.3.1 实验版](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.1)**。下载 `omsipmxtool-0.3.1-windows-x64.zip`，完整解压后运行 `omsipmxtool.exe`；请保留同目录的 `_internal` 文件夹，无需安装 Python。程序尚未进行代码签名。
 
 ## 更新日志
+
+### v0.3.1 · 2026-10-19
+
+- **安全修复**：人物包导入及安装拒绝符号链接、Windows 目录联接和其他重解析点；复制时逐项复查目录边界，防止跟随链接复制包外文件。安装目标也会检查链接和角色标识。
+- **修复**：选择 D 腿骨后，同时保留普通腿骨链及其子骨骼的权重归属，避免部分腿部顶点错误归到胯部。
+- **性能**：模型预览改为分批绘制，旋转 / 缩放会取消过时画面；超过 80,000 个三角面或 120,000 个顶点时只显示骨骼，原始数据和完整导出不受影响。超过 4,096 个骨骼时提示改用 JSON 映射。
+- **验证**：68 项自动化测试通过，新增目录联接拦截、混合腿骨权重与预览响应回归测试。
+- **说明**：补充下方安全说明、发布文件校验方式和安全软件告警处理流程。
 
 ### v0.3.0 · 2026-10-19
 
@@ -32,6 +40,16 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 - 发布 Windows x64 实验版，提供无需另装 Python 的程序包。
 - 提供对应应用源码、依赖源码、许可说明和 SHA-256 校验文件。
+
+## 安全说明与告警反馈
+
+- **正式版行为范围**：读取用户选择的模型及资源，生成转换包；按用户操作安装人物并修改地图司机列表，保留恢复备份。角色库、备份和日志默认位于 `%LOCALAPPDATA%\OMSI Mod Studio`。启动游戏仅运行用户配置的游戏程序。
+- **不包含的功能**：主转换器未实现遥测上传、开机自启、关闭杀软或进程内存注入。独立的本地实验工具不包含在正式 EXE 和对应源码 ZIP 中；不要将其他工具的检测结果混同于此发布包。
+- **下载与核验**：从本项目 GitHub Release 下载，核对版本和 `SHA256SUMS.txt`。可用 PowerShell 的 `Get-FileHash .\omsipmxtool-0.3.1-windows-x64.zip -Algorithm SHA256` 核对压缩包。包内另附逐文件清单、构建信息、对应源码及依赖来源。哈希匹配只能证明文件一致，不能证明不存在漏洞或恶意行为。
+- **签名与检测限制**：当前 EXE 未进行数字签名；未知发布者 / 信誉提示与明确的恶意软件检测不是同一结论。测试、代码审查和单次杀毒扫描均不构成绝对安全保证，也不代表已审计全部第三方依赖。
+- **遇到告警**：先暂停使用，保留下载来源、版本、被检测文件的 SHA-256、检测名称与截图，通过[项目 Issues](https://github.com/splDANHENG/omsipmxtool/issues)反馈。不要公开私人模型、账号信息或敏感路径。维护者应核对官方文件、复现并调查；确认问题后暂停受影响版本分发、修复及公告，疑似误报向安全厂商提交复核并公开结论。
+- **保持防护开启**：不要为运行本工具关闭杀毒软件、添加整盘白名单或以管理员权限绕过告警。微软提供[文件复核入口](https://www.microsoft.com/en-us/wdsi/filesubmission)及[SmartScreen 信誉说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
+- **边界**：仅导入可信且独立的人物目录；安装会复制该目录中的普通文件，不会替用户判断附带文件是否可信。路径检查不构成对具有同等本机写权限的并发攻击者的完整隔离。请勿在安装过程中由其他程序修改人物目录。
 
 ## 可以做什么？
 
@@ -61,7 +79,7 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 ### 1. 准备软件、游戏和模型
 
-Windows 用户可从 [Release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.0) 下载 `omsipmxtool-0.3.0-windows-x64.zip`，完整解压到可写目录，双击 `omsipmxtool.exe`。不要只移动 EXE，也不要在压缩包内直接运行。当前在 Windows 10 x64 上验证，Windows 11 尚未完成实机验证。
+Windows 用户可从 [Release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.1) 下载 `omsipmxtool-0.3.1-windows-x64.zip`，完整解压到可写目录，双击 `omsipmxtool.exe`。不要只移动 EXE，也不要在压缩包内直接运行。当前在 Windows 10 x64 上验证，Windows 11 尚未完成实机验证。
 
 如果希望从源码运行，在 GitHub 点击 **Code → Download ZIP**，完整解压后按下方“从源码运行”安装并启动；也可使用 Git 克隆：
 

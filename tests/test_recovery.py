@@ -24,7 +24,7 @@ class RecoveryTests(unittest.TestCase):
             copy.assert_not_called()
 
     def test_failed_copy_cleans_staging_and_can_retry(self):
-        def fail(src,dst):
+        def fail(src,dst,**kwargs):
             Path(dst).mkdir();(Path(dst)/'partial').write_bytes(b'partial')
             raise OSError('copy failed')
         with patch('omsimod.library.shutil.copytree',fail):

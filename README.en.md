@@ -12,9 +12,17 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
-**Windows download: [v0.3.0 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.0)**. Download `omsipmxtool-0.3.0-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+**Windows download: [v0.3.1 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.1)**. Download `omsipmxtool-0.3.1-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
 
 ## Changelog
+
+### v0.3.1 · 2026-10-19
+
+- **Security:** reject symlinks, Windows junctions and other reparse points during character import/install. Recheck entries and their directory boundaries while copying. Validate installation destinations and character identifiers too.
+- **Fixed:** selecting D leg pivots now retains weights from ordinary parallel leg chains and their descendants, instead of assigning some leg vertices to the hips.
+- **Performance:** preview rendering yields between batches and cancels obsolete frames after camera changes. Models exceeding 80,000 triangles or 120,000 vertices use a skeleton-only preview without changing full exports. Models with more than 4,096 bones must use JSON mapping.
+- **Validation:** 68 automated tests passed, including junction rejection, mixed leg-chain weights and responsive preview rendering.
+- **Documentation:** added security scope, release verification and detection-report handling below.
 
 ### v0.3.0 · 2026-10-19
 
@@ -30,6 +38,16 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 - Released the Windows x64 experimental package with no separate Python installation required.
 - Provided corresponding application/dependency sources, license notices and SHA-256 checksums.
+
+## Security and detection reports
+
+- **Scope:** the main application reads selected model resources, exports character packages and, when requested, installs characters and updates map driver lists with recovery backups. Catalogue data, backups and logs default to `%LOCALAPPDATA%\OMSI Mod Studio` on Windows. Launching the game runs the executable configured by the user.
+- **Excluded behavior:** the main converter implements no telemetry uploads, startup persistence, antivirus disabling or process-memory injection. Separate local experimental tools are not included in the official EXE or corresponding source ZIP.
+- **Verify downloads:** use this project's GitHub Releases and compare the ZIP's SHA-256 with `SHA256SUMS.txt`, e.g. `Get-FileHash .\omsipmxtool-0.3.1-windows-x64.zip -Algorithm SHA256`. Per-file manifests, build information and corresponding sources are supplied. Matching hashes prove file identity, not the absence of vulnerabilities or malware.
+- **Limits:** the EXE is unsigned. Unknown-publisher/reputation warnings differ from malware detections. Tests, review and individual antivirus scans are not guarantees of safety or complete third-party dependency audits.
+- **Reports:** pause use and provide the download URL, version, detected file's SHA-256, detection name and screenshot in [Issues](https://github.com/splDANHENG/omsipmxtool/issues). Do not post private models, credentials or sensitive paths. Maintainers should verify and investigate; confirmed issues require stopping affected distribution, fixing and announcing the issue. Suspected false positives should be submitted to the vendor for review with the outcome disclosed.
+- **Keep protection enabled:** do not disable antivirus, whitelist entire drives or elevate privileges to bypass alerts. Microsoft provides a [file review portal](https://www.microsoft.com/en-us/wdsi/filesubmission) and [SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+- **Trust boundary:** import trusted standalone character folders only. Installation copies their regular files; it does not establish that unrelated accompanying files are trustworthy. Path checks do not fully isolate a concurrent attacker with equivalent local write access. Do not modify the source package during installation.
 
 ## Features
 

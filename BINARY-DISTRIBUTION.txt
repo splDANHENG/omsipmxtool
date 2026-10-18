@@ -1,4 +1,4 @@
-omsipmxtool 0.3.0 — Windows x64 distribution / 二进制发布说明
+omsipmxtool 0.3.1 — Windows x64 distribution / 二进制发布说明
 
 使用 / Use
 完整解压 Windows ZIP 到可写目录，双击 omsipmxtool.exe。
@@ -30,11 +30,11 @@ libraries are supplied by the operating system. Build tool licensing does not
 relicense the application. Runtime versions/features are in BUILD-INFO.json.
 
 对应源码 / Corresponding source
-The same release provides omsipmxtool-0.3.0-source.zip (application and build
-scripts) and omsipmxtool-0.3.0-dependency-sources.zip (unmodified upstream sources,
+The same release provides omsipmxtool-0.3.1-source.zip (application and build
+scripts) and omsipmxtool-0.3.1-dependency-sources.zip (unmodified upstream sources,
 including Qt base/translations, PySide/Shiboken, Python, Pillow, pypinyin and
 PyInstaller). No project-specific patches are applied to these libraries.
-https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.0
+https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.1
 These downloads are available without charge alongside the Windows binary.
 sources.json records the original source URLs and SHA-256 hashes; SHA256SUMS.txt
 records release asset hashes. Keep these source assets available when mirroring

@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 
 
 def digest(path):

@@ -2,8 +2,9 @@
 # Copyright (c) 2026 omsipmxtool contributors
 """Dependency-free orthographic mesh and bone preview for rig mapping."""
 import math
+import time
 
-from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtCore import QPointF, Qt, Signal, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF, QPixmap
 from PySide6.QtWidgets import QWidget
 
@@ -12,6 +13,9 @@ from .rig import leg_deform_bones
 
 class ModelPreview(QWidget):
     bonesPicked = Signal(list)
+    MAX_FACES = 80000
+    MAX_VERTICES = 120000
+    RENDER_BATCH = 256
 
     def __init__(self, model, parent=None):
         super().__init__(parent)
@@ -24,21 +28,30 @@ class ModelPreview(QWidget):
         self.pan = QPointF()
         self.show_mesh = True
         self.mesh_cache = None
+        self.render_steps = None
+        self.render_timer = QTimer(self)
+        self.render_timer.setSingleShot(True)
+        self.render_timer.timeout.connect(self.advance_render)
         self.press_pos = None
         self.dragged = False
         self.deform = set()
         for role in ('left_thigh', 'right_thigh', 'left_shin', 'right_shin'):
             self.deform.update(leg_deform_bones(model, role))
-        points = [v.position for v in model.vertices] or [b.position for b in model.bones]
+        self.mesh_limited = (len(model.indices)//3 > self.MAX_FACES or
+                             len(model.vertices) > self.MAX_VERTICES)
+        points = ([b.position for b in model.bones] if self.mesh_limited else
+                  [v.position for v in model.vertices]) or [b.position for b in model.bones]
         if not points:
             points = [(0, 0, 0), (0, 1, 0)]
         lows = [min(p[a] for p in points) for a in range(3)]
         highs = [max(p[a] for p in points) for a in range(3)]
         self.center = tuple((lo + hi) / 2 for lo, hi in zip(lows, highs))
         self.extent = max(max(hi - lo for lo, hi in zip(lows, highs)), 1e-6)
-        self.vertices = [self.normalized(v.position) for v in model.vertices]
+        self.vertices = [] if self.mesh_limited else [self.normalized(v.position) for v in model.vertices]
         self.bones = [self.normalized(b.position) for b in model.bones]
         self.faces = []
+        if self.mesh_limited:
+            return
         offset = 0
         for material in model.materials:
             if material.diffuse[3] > 0.001:
@@ -63,6 +76,8 @@ class ModelPreview(QWidget):
         return result
 
     def invalidate(self):
+        self.render_timer.stop()
+        self.render_steps = None
         self.mesh_cache = None
         self.update()
 
@@ -74,7 +89,7 @@ class ModelPreview(QWidget):
 
     def set_mesh_visible(self, visible):
         self.show_mesh = visible
-        self.update()
+        self.invalidate()
 
     def select_bone(self, index):
         self.selected = index
@@ -85,28 +100,61 @@ class ModelPreview(QWidget):
         super().resizeEvent(event)
 
     def render_mesh(self):
-        # Cache the expensive mesh; highlighting only redraws the skeleton.
-        pixmap = QPixmap(self.size())
-        pixmap.fill(QColor('#101923'))
-        painter = QPainter(pixmap)
-        painter.setPen(Qt.PenStyle.NoPen)
-        points = self.projected(self.vertices)
-        faces = sorted(self.faces, key=lambda face: sum(points[i][1] for i in face), reverse=True)
-        for face in faces:
-            a, b, c = [points[i] for i in face]
-            ux, uy, uz = b[0].x()-a[0].x(), b[0].y()-a[0].y(), b[1]-a[1]
-            vx, vy, vz = c[0].x()-a[0].x(), c[0].y()-a[0].y(), c[1]-a[1]
-            # Shade from the projected normal; depth uses the same screen scale.
-            scale = min(self.width(), self.height()) * .82 * self.zoom
-            uz *= scale; vz *= scale
-            nx, ny, nz = uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx
-            length = math.sqrt(nx*nx + ny*ny + nz*nz)
-            light = abs((nx*.2 + ny*-.4 + nz*.9) / length) if length else .5
-            shade = int(48 + min(light, 1) * 55)
-            painter.setBrush(QColor(shade, shade+9, shade+18))
-            painter.drawPolygon(QPolygonF([a[0], b[0], c[0]]))
-        painter.end()
-        self.mesh_cache = pixmap
+        self.render_timer.stop()
+        self.mesh_cache = QPixmap(self.size())
+        self.mesh_cache.fill(QColor('#101923'))
+        self.render_steps = self.mesh_steps()
+        self.advance_render()
+
+    def advance_render(self):
+        if self.render_steps is None:
+            return
+        deadline = time.monotonic() + .006
+        try:
+            while time.monotonic() < deadline:
+                next(self.render_steps)
+        except StopIteration:
+            self.render_steps = None
+        if self.render_steps is not None:
+            self.render_timer.start(1)
+        self.update()
+
+    def mesh_steps(self):
+        # Bounded batches yield to input/close events. Camera changes discard
+        # the old generator, so no stale frame can overwrite the current view.
+        points = []
+        batch = self.RENDER_BATCH
+        for start in range(0, len(self.vertices), batch):
+            points.extend(self.projected(self.vertices[start:start+batch]))
+            yield
+        # Depth buckets avoid a monolithic sort on the UI thread.
+        buckets = [[] for _ in range(256)]
+        for start in range(0, len(self.faces), batch):
+            for face in self.faces[start:start+batch]:
+                depth = sum(points[i][1] for i in face)/3
+                buckets[max(0, min(255, int((depth + 1)*127)))].append(face)
+            yield
+        scale = min(self.width(), self.height()) * .82 * self.zoom
+        for bucket in reversed(buckets):
+            for start in range(0, len(bucket), batch):
+                painter = QPainter(self.mesh_cache)
+                painter.setPen(Qt.PenStyle.NoPen)
+                for face in bucket[start:start+batch]:
+                    a, b, c = [points[i] for i in face]
+                    ux, uy, uz = b[0].x()-a[0].x(), b[0].y()-a[0].y(), (b[1]-a[1])*scale
+                    vx, vy, vz = c[0].x()-a[0].x(), c[0].y()-a[0].y(), (c[1]-a[1])*scale
+                    nx, ny, nz = uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx
+                    length = math.sqrt(nx*nx + ny*ny + nz*nz)
+                    light = abs((nx*.2 + ny*-.4 + nz*.9) / length) if length else .5
+                    shade = int(48 + min(light, 1) * 55)
+                    painter.setBrush(QColor(shade, shade+9, shade+18))
+                    painter.drawPolygon(QPolygonF([a[0], b[0], c[0]]))
+                painter.end()
+                yield
+
+    def hideEvent(self, event):
+        self.invalidate()
+        super().hideEvent(event)
 
     def paintEvent(self, event):
         if self.show_mesh and self.mesh_cache is None:
@@ -137,7 +185,9 @@ class ModelPreview(QWidget):
             painter.drawText(QPointF(12, self.height()-16),
                              f'#{self.selected}  {self.model.bones[self.selected].name}')
         painter.setPen(QColor('#9caec1'))
-        painter.drawText(QPointF(12, 22), '灰模预览 · 骨骼透视显示')
+        painter.drawText(QPointF(12, 22), '模型较大，仅显示骨骼（导出仍完整）' if self.mesh_limited else
+                         ('灰模绘制中… · 可继续操作' if self.render_steps is not None else
+                          '灰模预览 · 骨骼透视显示'))
         painter.end()
 
     def pick_bones(self, position):

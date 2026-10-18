@@ -233,6 +233,47 @@ class GuiTests(unittest.TestCase):
             self.assertIsNone(preview.selected)
             dialog.close()
 
+    def test_large_preview_falls_back_without_allocating_mesh(self):
+        from omsimod.pmx import load
+        from omsimod.model_preview import ModelPreview
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'model.pmx'; source.write_bytes(fixture())
+            model = load(source)
+            model.indices = model.indices * (ModelPreview.MAX_FACES + 1)
+            view = ModelPreview(model)
+            self.assertTrue(view.mesh_limited)
+            self.assertEqual(view.vertices, [])
+            self.assertEqual(view.faces, [])
+            self.assertEqual(len(view.bones), len(model.bones))
+            self.assertEqual(len(model.indices), 3*(ModelPreview.MAX_FACES+1))
+            view.close()
+
+    def test_preview_render_yields_and_camera_invalidates_pending_frame(self):
+        from PySide6.QtCore import QTimer
+        from omsimod.pmx import load
+        from omsimod.model_preview import ModelPreview
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp)/'model.pmx'; source.write_bytes(fixture())
+            model = load(source)
+            model.indices *= 20000; model.materials[0].count = len(model.indices)
+            view = ModelPreview(model); view.resize(500,500)
+            view.render_mesh()
+            self.assertIsNotNone(view.render_steps)
+            serviced = []
+            QTimer.singleShot(0, lambda: serviced.append(True))
+            self.app.processEvents()
+            self.assertTrue(serviced)
+            view.yaw = .5; view.invalidate()
+            self.assertIsNone(view.render_steps)
+            self.assertFalse(view.render_timer.isActive())
+            view.render_mesh()
+            end = time.monotonic()+10
+            while view.render_steps is not None and time.monotonic() < end:
+                self.app.processEvents(); time.sleep(.002)
+            self.assertIsNone(view.render_steps)
+            self.assertFalse(view.mesh_cache.isNull())
+            view.close()
+
     def test_mapping_editor_applies_to_conversion_and_resets_on_source_change(self):
         import json
         from omsimod.mapping_editor import MappingEditor

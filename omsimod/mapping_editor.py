@@ -33,6 +33,8 @@ class BoneComboBox(QComboBox):
 class MappingEditor(QDialog):
     def __init__(self, model, overrides=None, parent=None):
         super().__init__(parent)
+        if len(model.bones) > 4096:
+            raise ValueError('模型骨骼超过 4096 个，暂不支持图形化映射；可使用 JSON 映射直接转换。')
         self.model = model
         self.result_mapping = None
         self.setWindowTitle('骨骼映射 · ' + model.name)

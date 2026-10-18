@@ -8,6 +8,9 @@ import hashlib
 import subprocess
 import tempfile
 import threading
+import os
+import stat
+import re
 from functools import wraps
 from pathlib import Path
 from .locking import catalogue_lock
@@ -97,8 +100,57 @@ def local_file(base, value):
     return path
 
 
+def check_package_entry(path, root):
+    """Reject links/reparse points before traversing or copying an entry."""
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+        raise ValueError('人物目录不支持符号链接、目录联接或其他重解析点：' + str(path))
+    if not path.resolve().is_relative_to(root):
+        raise ValueError('人物资源超出人物目录：' + str(path))
+    if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+        raise ValueError('人物目录包含不支持的特殊文件：' + str(path))
+    return info
+
+
+def validate_package_tree(directory):
+    root = directory.resolve()
+    pending = [directory]
+    while pending:
+        path = pending.pop()
+        info = check_package_entry(path, root)
+        if stat.S_ISDIR(info.st_mode):
+            with os.scandir(path) as entries:
+                pending.extend(Path(entry.path) for entry in entries)
+
+
+def copy_package(source, destination):
+    root = source.resolve()
+    def check_path(path):
+        path = Path(path)
+        check_package_entry(path, root)
+        if path == root:
+            return
+        for parent in path.parents:
+            if parent == root:
+                check_package_entry(parent, root)
+                break
+            check_package_entry(parent, root)
+    def inspect(directory, names):
+        check_path(directory)
+        for name in names:
+            check_path(Path(directory)/name)
+        return []
+    def copy_file(src, dst):
+        check_path(src)
+        return shutil.copy2(src, dst, follow_symlinks=False)
+    validate_package_tree(source)
+    shutil.copytree(source, destination, symlinks=True, ignore=inspect, copy_function=copy_file)
+
+
 def validate_hum(path):
-    path=Path(path).resolve()
+    path=Path(path).absolute()
+    validate_package_tree(path.parent)
+    path=path.resolve()
     if path.suffix.lower()!='.hum': raise ValueError('请选择 .hum 文件')
     lines=read_text(path).splitlines()
     try: model=local_file(path.parent,lines[lines.index('[model]')+1])
@@ -120,9 +172,6 @@ def validate_hum(path):
             texture=lines[i+1].strip()
             if texture and not texture.startswith('\\S:'):
                 require_texture(path.parent,model.parent,texture)
-    # Do not copy symlinks or external data accidentally.
-    if any(f.is_symlink() for f in path.parent.rglob('*')):
-        raise ValueError('当前仅支持不含符号链接的独立人物目录')
     return path
 
 
@@ -203,7 +252,12 @@ class Library:
         root=Path(root).expanduser().resolve()
         if not (root/'maps').is_dir():
             raise ValueError('请选择包含 maps 的 OMSI 内容目录')
+        if not isinstance(item.get('id'), str) or not re.fullmatch(r'[A-Za-z0-9_-]+', item['id']):
+            raise ValueError('非法角色标识')
         target=root/'Humans'/('OMSIMod_'+item['id'])
+        for entry in (target.parent, target):
+            if entry.exists() or entry.is_symlink():
+                check_package_entry(entry, root)
         source=Path(item['hum']).resolve().parent
         resolved=target.resolve()
         if resolved.is_relative_to(source) or source.is_relative_to(resolved):
@@ -222,7 +276,7 @@ class Library:
             target.parent.mkdir(parents=True,exist_ok=True)
             with tempfile.TemporaryDirectory(prefix='.omsimod-install-',dir=target.parent) as temp:
                 staged=Path(temp)/'character'
-                shutil.copytree(hum.parent,staged)
+                copy_package(hum.parent,staged)
                 validate_hum(staged/hum.name)
                 write_state(staged/marker.name,ownership)
                 staged.rename(target)
