@@ -249,6 +249,34 @@ python3 -m venv .venv-gui
 
 Platform support also depends on Python, Qt and dependency versions. The latest local source review was performed on Windows; other platforms require their own validation.
 
+### macOS usage (launch the GUI from Terminal)
+
+macOS users can run from source without first building an `.app`. Terminal is used to install dependencies and launch the graphical interface. The Windows `.exe` distribution cannot run directly on macOS.
+
+1. Install Python 3.10 or newer, for example using an installer suitable for your system from [Python's website](https://www.python.org/downloads/macos/). Check the version with `python3 --version` in Terminal.
+2. Download and extract this repository using **Code → Download ZIP** into your user directory. Type `cd ` in Terminal (including the trailing space), drag the extracted project folder into the window, and press Return. The folder should contain `pyproject.toml`.
+3. Run these commands from that folder:
+
+```bash
+python3 -m venv .venv-gui
+.venv-gui/bin/python -m pip install --upgrade pip
+.venv-gui/bin/python -m pip install '.[gui]'
+.venv-gui/bin/python -m omsimod.gui
+```
+
+The initial dependency installation requires internet access. For subsequent launches, enter the same project directory and run only the final command. Keep Terminal open while using the application. Environment activation and `sudo` are not required.
+
+In the character-library/game tab, select your OMSI content directory containing resources such as `Humans`, `Maps` and `Vehicles`. To launch the game through this tool, select the actual executable inside the OpenOMSI app bundle, commonly `/Applications/openOMSI.app/Contents/MacOS/openomsi`; use your actual installation location. In Finder, right-click the application and choose **Show Package Contents**.
+
+For command-line inspection or conversion, after the installation above, run from the project directory:
+
+```bash
+.venv-gui/bin/python -m omsimod inspect "/path/to/model.pmx"
+.venv-gui/bin/python -m omsimod convert "/path/to/model.pmx" --output "/path/to/new-package" --name MyDriver --height 1.75
+```
+
+Replace the example paths. The height `1.75` is an example full-mesh height in metres; adjust it for your model. The output directory must not already exist. CLI conversion creates a package without installing it into the game; use the GUI for automatic installation and batch assignment. Compatibility across macOS versions, processors and dependency combinations still requires testing on the respective systems.
+
 ### Command line and development
 
 Using the Python interpreter from the environment where the project is installed:

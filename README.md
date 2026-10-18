@@ -274,6 +274,34 @@ python3 -m venv .venv-gui
 
 不同系统的支持情况取决于 Python、Qt 和依赖版本。本次源码审查在 Windows 完成，其他系统仍需对应环境验证。
 
+### macOS 使用方式（终端启动图形界面）
+
+macOS 可从源码运行，无需先打包成 `.app`。终端用于安装依赖和启动程序；启动后仍使用图形界面操作，不能直接运行 Windows 发布包中的 `.exe`。
+
+1. 安装 Python 3.10 或更新版本，可从 [Python 官网](https://www.python.org/downloads/macos/) 获取适用于当前系统的安装程序。在“终端”运行 `python3 --version` 确认版本。
+2. 从本仓库的 **Code → Download ZIP** 下载源码并解压到自己的用户目录。在终端输入 `cd `（末尾保留空格），将解压后的项目文件夹拖入终端，再按回车。该目录应包含 `pyproject.toml`。
+3. 在项目目录依次执行：
+
+```bash
+python3 -m venv .venv-gui
+.venv-gui/bin/python -m pip install --upgrade pip
+.venv-gui/bin/python -m pip install '.[gui]'
+.venv-gui/bin/python -m omsimod.gui
+```
+
+首次安装依赖需要联网。以后启动时，进入同一项目目录，只需执行最后一条命令；使用期间保留该终端窗口。无需激活虚拟环境，也无需使用 `sudo`。
+
+在“角色库与游戏”中选择自己的 OMSI 内容目录（包含 `Humans`、`Maps`、`Vehicles` 等资源的目录）。若需要通过本工具启动游戏，选择 OpenOMSI 应用包内的实际可执行文件；常见位置为 `/Applications/openOMSI.app/Contents/MacOS/openomsi`，以实际安装位置为准。Finder 中可右键应用，选择“显示包内容”。
+
+也可以只使用命令行检查或转换模型。在完成上述安装后，于项目目录执行：
+
+```bash
+.venv-gui/bin/python -m omsimod inspect "/path/to/model.pmx"
+.venv-gui/bin/python -m omsimod convert "/path/to/model.pmx" --output "/path/to/new-package" --name MyDriver --height 1.75
+```
+
+将示例路径替换为自己的路径；`1.75` 是示例网格高度（米），请按模型需要调整。输出目录必须尚不存在。命令行转换仅生成人物包，不会自动安装到游戏；自动安装和批量应用请使用图形界面。当前版本在不同 macOS、处理器及依赖组合上的兼容性仍需实机验证。
+
 ### 命令行与开发
 
 命令行保留手动选择输出目录和高度的方式，不显示 GUI 阅读弹窗。运行前请自行阅读项目及模型许可。
