@@ -1,0 +1,66 @@
+OMSI Mod Studio — Windows 开发交接（2026-10-17）
+
+目标
+跨平台 PMX -> OpenOMSI O3D/HUM 转换器，加 Qt 图形界面、角色库、地图批量应用与恢复。
+不修改 OpenOMSI 引擎。用户希望最终双击即可使用，至少支持 Windows。
+
+当前实现
+omsimod/pmx.py：PMX 2.0/2.1 几何、材质和骨骼读取。
+rig.py：缩减到 13 槽骨架，直臂 A/T pose 转换，额外骨骼按祖先归并。
+export.py：O3D v1 分块、PNG 贴图、HUM，临时目录输出，不覆盖已有输出。
+gui.py：PySide6 转换界面、后台任务。
+library.py / manager.py：HUM 角色库，人物安装，单地图/全部已安装地图应用与恢复。
+paths.py：平台用户数据目录。
+scripts/build_gui.py：在目标 OS 上用 PyInstaller 构建原生包。
+scripts/build_windows_portable.py：用官方 Windows 嵌入式 Python 和 Windows wheels 组装免安装包。
+
+已知限制
+物理、表情、IK、追加变换不导出；SDEF/QDEF 近似线性蒙皮。
+默认 alpha=0 材质跳过；不按米哈游等厂商名称推断隐藏层。
+HUM 骨骼参数有镜像限制；服装不对称几何保留，但额外骨骼简化。
+原模型高度按全部网格范围计算，含头发/饰物。
+直接修改 maps/<map>/drivers.txt 第一项实现司机替换，AI 也可能选中。
+新装地图需再应用一次，不是后台监控。车辆自带静态司机不受此机制控制。
+不要同时打开多个 App 实例管理同一份数据，尚未实现跨进程锁。
+
+最近修复
+拒绝源人物目录与安装目录重叠。
+人物先复制到临时目录再提交；拥有安装标记以恢复登记失败。
+地图应用和恢复有原子写入及 pending/restoring 操作记录，中断后可重试。
+同一 Library 实例的角色库变更使用 RLock 串行化。
+29 项测试在 macOS 通过，含故障注入；未在 Windows 实机验证。
+Windows 便携包已检查 ZIP、源代码一致性及 PE 文件签名，不能视为运行验证。
+
+Windows 开发启动（PowerShell，在解压后的项目目录执行）
+py -3.12 -m venv .venv-gui
+.\.venv-gui\Scripts\python.exe -m pip install -e ".[gui]"
+.\.venv-gui\Scripts\python.exe -m unittest discover -s tests
+.\.venv-gui\Scripts\python.exe -m omsimod.gui
+
+构建原生 Windows EXE 目录
+.\.venv-gui\Scripts\python.exe -m pip install pyinstaller
+.\.venv-gui\Scripts\python.exe scripts/build_gui.py
+产物：dist/OMSI Mod Studio/OMSI Mod Studio.exe；整个目录一起分发。
+
+接下来优先工作
+在 Windows 安装 Python 3.12，建立开发环境，跑测试与 GUI。
+使用临时目录测试应用/恢复，随后再使用 Windows 本机真实游戏进行验证。
+检查中文路径、文件权限和 Qt DLL 加载，修复平台差异，原生打包后实测。
+原始 PMX、贴图和游戏数据需要用户另行提供，不在源码包中。
+
+原 Mac 状态（仅供参考，不能作为 Windows 路径使用）
+游戏版本 openOMSI 0.3.36。
+调试模型：星穹铁道—饮月君1708.pmx；完整模型目录中的贴图必须一起迁移。
+Mac 用户数据：~/Library/Application Support/OMSI Mod Studio/
+Windows 用户数据：%LOCALAPPDATA%/OMSI Mod Studio/
+不要直接复制 Mac library.json 或 activation.json 到 Windows 使用：内含绝对路径，地图备份属于原机器。
+Mac 地图司机修改仍有原备份，保留 Mac 用户数据目录供恢复。
+Windows 应重新导入 HUM，选择本机 openomsi.exe 与 OMSI 内容目录，再应用。
+若整个游戏目录从 Mac 复制且已含 OMSIMod_人物引用，先在 Mac 对副本恢复原始 drivers.txt，或带上原始地图文件；不要把已修改列表当作 Windows 新的原始备份。
+
+上下文
+用户希望改进司机动画；空挡手臂乱摆未定位根因。
+上游 enhancement 已提交：https://github.com/openOMSI-org/openOMSI/issues/2922
+0.3.36 支持 hands_in_cab 显示第一人称手和手臂，躯干/腿被隐藏；不能据此认为模型没腿。
+Git 尚无远程仓库；此源码包包含当前未提交文件，不包含 .git。
+无需依赖旧聊天历史即可从本交接文件继续。

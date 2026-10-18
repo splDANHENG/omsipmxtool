@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+.venv-gui/
+.DS_Store
+
+userdata/
+
+# Local credentials, logs and machine state
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+.codex/
+.agents/
+Thumbs.db
+Desktop.ini
+*.omsimod-driver-fix.bak
+
+# User-supplied models and game content are not source code
+*.pmx
+*.pmd
+*.o3d
+*.hum
+/Humans/
+/Vehicles/
+/maps/

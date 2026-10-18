@@ -1,0 +1,187 @@
+import json
+import math
+import struct
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from PIL import Image
+from omsimod.pmx import load, ConversionError
+from omsimod.rig import identify, prepare, SLOTS
+from omsimod.export import convert, bake_texture
+
+
+def p(fmt, *v):
+    return struct.pack('<'+fmt, *v)
+
+
+def txt(s):
+    b = s.encode('utf-8')
+    return p('i', len(b))+b
+
+
+def fixture():
+    bones = [('hips',(0,1,0),-1), ('spine',(0,1.2,0),0),
+             ('head',(0,1.8,0),3), ('neck',(0,1.6,0),1),
+             ('leftleg',(-.1,.9,0),0), ('rightleg',(.1,.9,0),0),
+             ('leftknee',(-.1,.5,0),4), ('rightknee',(.1,.5,0),5),
+             ('leftarm',(-.2,1.5,0),1), ('rightarm',(.2,1.5,0),1),
+             ('leftelbow',(-.5,1.5,0),8), ('rightelbow',(.5,1.5,0),9),
+             ('lefthand',(-.8,1.5,0),10), ('righthand',(.8,1.5,0),11),
+             ('chest',(0,1.4,0),1)]
+    data = b'PMX '+p('fB',2,8)+bytes([1,0,1,1,1,1,1,1])
+    data += txt('Synthetic test')+txt('')*3+p('i',3)
+    for pos in [(0,0,0),(0,2,0),(.1,1,0)]:
+        data += p('3f3f2fB', *pos, 0,0,-1, 0,0, 2)
+        data += p('4b4ff', 1,14,9,-1, .35,.25,.4,0, 1)
+    data += p('i3Bi',3,0,1,2,0)  # indices then texture count
+    data += p('i',1)+txt('body')+txt('')
+    data += p('4f3ff3fB4ff',1,1,1,1, 0,0,0, 0, 0,0,0, 0, 0,0,0,0, 0)
+    data += p('bbBBB',-1,-1,0,1,0)+txt('')+p('i',3)
+    data += p('i',len(bones))
+    for name,pos,parent in bones:
+        data += txt(name)+txt('')+p('3fbiH3f',*pos,parent,0,0,0,0,0)
+    data += p('4i',0,0,0,0) # empty morphs/display/physics (unused prefix)
+    return data
+
+
+def read_o3d(path):
+    """Independent sequential validation, including all index/weight boundaries."""
+    data = path.read_bytes()
+    offset = 0
+    def take(fmt):
+        nonlocal offset
+        result = struct.unpack_from('<'+fmt,data,offset)
+        offset += struct.calcsize('<'+fmt)
+        return result
+    def tag(value):
+        assert take('B')[0] == value
+    assert take('3B') == (0x84,0x19,1)
+    tag(0x17)
+    n = take('H')[0]
+    vertices = [take('8f') for _ in range(n)]
+    assert all(math.isfinite(x) for v in vertices for x in v)
+    tag(0x49)
+    triangles = [take('4H') for _ in range(take('H')[0])]
+    assert all(max(t[:3]) < n and t[3] == 0 for t in triangles)
+    tag(0x26)
+    assert take('H')[0] == 1
+    take('11f')
+    size = take('B')[0]
+    texture = data[offset:offset+size].decode('ascii'); offset += size
+    tag(0x79); take('16f')
+    tag(0x54)
+    weights = [0.0]*n
+    names = []
+    for _ in range(take('H')[0]):
+        size = take('B')[0]
+        names.append(data[offset:offset+size].decode()); offset += size
+        for _ in range(take('H')[0]):
+            index, weight = take('Hf')
+            assert index < n and 0 < weight <= 1
+            weights[index] += weight
+    assert names == SLOTS
+    assert all(abs(w-1) < 1e-5 for w in weights)
+    assert offset == len(data)
+    return vertices, triangles, texture
+
+
+class ConverterTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.source = self.root/'人物.pmx'
+        self.source.write_bytes(fixture())
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_parser_and_weight_sum(self):
+        m = load(self.source)
+        _, _, w, _ = prepare(m, identify(m, {}), 1.75)
+        self.assertAlmostEqual(w[0][SLOTS.index('torso')], .6, places=6)
+        self.assertAlmostEqual(w[0][SLOTS.index('right_arm')], .4, places=6)
+
+    def test_end_to_end_cli_and_binary(self):
+        output = self.root/'package'
+        result = subprocess.run([sys.executable,'-m','omsimod','convert',str(self.source),
+                                 '--output',str(output),'--name','TestDriver'],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        report = json.loads(result.stdout)
+        self.assertFalse(report['game_verified'])
+        folder = output/'Humans'/'TestDriver'
+        vertices, tris, texture = read_o3d(next((folder/'model').glob('*.o3d')))
+        self.assertEqual(len(tris),1)
+        self.assertAlmostEqual(max(v[1] for v in vertices),1.75)
+        self.assertTrue((folder/'texture'/texture).exists())
+        hum = (folder/'driver.hum').read_text().splitlines()
+        link = hum.index('[links]')+1
+        self.assertEqual(len(hum[link:hum.index('[walk_param]')]),22)
+        self.assertEqual(self.source.read_bytes(),fixture())
+
+    def test_texture_tint_and_alpha(self):
+        src = self.root/'a.png'; dst=self.root/'b.png'
+        Image.new('RGBA',(1,1),(200,100,50,128)).save(src)
+        self.assertEqual(bake_texture(src,(.5,1,1,.5),dst),2)
+        with Image.open(dst) as img:
+            self.assertEqual(img.getpixel((0,0)),(100,100,50,64))
+
+    def test_no_overwrite(self):
+        out = self.root/'existing'; out.mkdir()
+        (out/'keep').write_text('keep')
+        with self.assertRaises(ConversionError):
+            convert(load(self.source),self.source,out,'Test',1.75,{})
+        self.assertEqual((out/'keep').read_text(),'keep')
+
+    def test_texture_escape_and_missing_fail_atomically(self):
+        for name in ['../secret.png','C:\\secret.png','missing.png']:
+            m=load(self.source);m.textures=[name];m.materials[0].texture=0
+            out=self.root/'out'
+            with self.assertRaises(ConversionError):
+                convert(m,self.source,out,'Test',1.75,{})
+            self.assertFalse(out.exists())
+
+    def test_truncated_input(self):
+        for size in (0,4,20,len(fixture())-25):
+            self.source.write_bytes(fixture()[:size])
+            with self.assertRaises(ConversionError): load(self.source)
+
+    def test_ambiguous_bone_needs_override(self):
+        m=load(self.source);m.bones[14].english='spine'
+        with self.assertRaises(ConversionError): identify(m,{})
+        # Exact native name disambiguates an alias collision.
+        m.bones[1].name='custom_spine'
+        self.assertEqual(identify(m,{'torso':'custom_spine'})['torso'],1)
+
+    def test_bent_arms_rejected(self):
+        m=load(self.source);m.bones[12].position=(-.5,1.8,0)
+        with self.assertRaises(ConversionError): prepare(m,identify(m,{}),1.75)
+
+    def test_double_sided(self):
+        m=load(self.source);m.materials[0].double_sided=True
+        out=self.root/'out'
+        convert(m,self.source,out,'Test',1.75,{})
+        _,tri,_=read_o3d(next(out.rglob('*.o3d')))
+        self.assertEqual(len(tri),2)
+
+    def test_hidden_state_not_vendor_or_material_name(self):
+        import copy
+        m=load(self.source)
+        hidden=copy.deepcopy(m.materials[0])
+        hidden.name='arbitrary_vendor_layer'
+        hidden.diffuse=(1,1,1,0)
+        hidden.texture=0
+        m.textures=['hidden_texture_not_present.png']
+        m.materials[0].name='face_expression_visible'
+        m.materials.append(hidden)
+        m.indices=m.indices*2
+        out=self.root/'hidden'
+        report=convert(m,self.source,out,'Test',1.75,{})
+        self.assertEqual(report['output_meshes'],1)
+        self.assertTrue(any('arbitrary_vendor_layer' in w for w in report['warnings']))
+        self.assertFalse(any('face_expression_visible' in w for w in report['warnings']))
+
+
+if __name__ == '__main__':
+    unittest.main()
