@@ -55,8 +55,8 @@ EXE 公开发布仍须按最终产物补齐 Qt/PySide/Shiboken 及其他库的�
 历史 Windows 便携脚本会解包完整 Qt wheel，仅留作开发参考。
 
 七、用户授权的 GitHub 发布范围
-仓库：https://github.com/splDANHENG/omsimod
-默认分支：main；保留仓库名称，项目显示名称为 omsipmxtool。
+仓库：https://github.com/splDANHENG/omsipmxtool
+默认分支：main；仓库及项目名称为 omsipmxtool（原仓库名 omsimod）。
 用户已确认补齐详细使用说明后上传并公开。发布前检查最终清单及现有历史，
 推送已审查源码和文档，将现有仓库设为公开，不上传本地 EXE 或人物资源。
 本文件是审查与授权范围记录；实际发布状态以 GitHub 仓库和提交记录为准。

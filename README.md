@@ -39,8 +39,8 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 本仓库当前发布源码，不提供已经完成公开发行许可整理的 EXE 下载。在 GitHub 点击 **Code → Download ZIP**，完整解压到可写目录，再按下方“从源码运行”安装并启动；也可使用 Git 克隆：
 
 ```bash
-git clone https://github.com/splDANHENG/omsimod.git
-cd omsimod
+git clone https://github.com/splDANHENG/omsipmxtool.git
+cd omsipmxtool
 ```
 
 另行准备可正常运行的 OpenOMSI、合法取得的 OMSI 2 游戏内容，以及许可允许相关使用的 PMX 模型。建议先用原版司机进入一次目标地图和车辆，确认游戏本身正常。
@@ -280,7 +280,7 @@ PMX 有文件格式规范，但不同作者使用的骨骼命名、变形链、�
 
 本程序目前主要基于米哈游公开配布的模型进行测试，测试范围有限，不保证其他来源或制作方式的模型都能直接转换。
 
-如果你的模型无法正常转换，欢迎[提交 Issue](https://github.com/splDANHENG/omsimod/issues)，也可以将错误提示和转换报告交给 AI 编程助手（Agent），协助排查骨骼映射、模型结构或程序适配问题。修改前请保留原文件，并遵守模型许可。
+如果你的模型无法正常转换，欢迎[提交 Issue](https://github.com/splDANHENG/omsipmxtool/issues)，也可以将错误提示和转换报告交给 AI 编程助手（Agent），协助排查骨骼映射、模型结构或程序适配问题。修改前请保留原文件，并遵守模型许可。
 
 ### 如何报告问题
 
