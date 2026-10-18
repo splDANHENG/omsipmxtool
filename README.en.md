@@ -6,6 +6,8 @@
 
 omsipmxtool converts PMX character models into OpenOMSI character packages, with a desktop interface for conversion, installation, driver selection and restoration. Blender is not required.
 
+**This project was built 100% using GPT-6 Astra.** This is the project author's statement about the development process; it does not change the copyright or licensing requirements of referenced code, third-party dependencies or model assets.
+
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
 ## Features
