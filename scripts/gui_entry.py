@@ -7,7 +7,8 @@ def smoke_test(report_path):
     from pathlib import Path
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
-    from omsimod.gui import Window, main
+    from omsimod.gui import Window, main, convert_model
+    from omsimod import __version__
     from omsimod.naming import pinyin_name
     from omsimod.model_notice import ModelNotice
 
@@ -25,7 +26,7 @@ def smoke_test(report_path):
                 bar.setValue(bar.maximum())
                 notice.check_end()
                 notice.proceed.click()
-                QTimer.singleShot(500, finish)
+                QTimer.singleShot(500, checked_finish)
                 return
             window = next(w for w in app.topLevelWidgets() if isinstance(w, Window))
             from omsimod.mapping_editor import MappingEditor
@@ -50,6 +51,24 @@ def smoke_test(report_path):
             checked['preview_mapping'] = mapping.get('left_thigh') == bones[selected].name
             checked['preview_screenshot'] = editor.grab().save(str(Path(report_path).with_suffix('.png')))
             editor.close()
+            checked['special_mode_default_off'] = not window.special_body.isChecked()
+            window.special_body.setChecked(True)
+            checked['special_mode_checkbox'] = window.special_body.isChecked()
+            checked['version'] = __version__
+            if os.environ.get('OMSIMOD_SMOKE_PMX'):
+                import hashlib
+                source = Path(os.environ['OMSIMOD_SMOKE_PMX'])
+                before = hashlib.sha256(source.read_bytes()).hexdigest()
+                report = convert_model(source, Path(directory)/'smoke-character',
+                                       'SmokeSpecial', None, {}, special_body=True)
+                checked['special_mode_conversion'] = {
+                    'version': report['converter_version'],
+                    'body_height_m': report['height'],
+                    'full_mesh_height_m': report['special_body']['output_mesh_height_m'],
+                    'output_meshes': report['output_meshes'],
+                    'source_unchanged': before == hashlib.sha256(source.read_bytes()).hexdigest(),
+                    'applied_to_maps': False,
+                }
             Path(report_path).write_text(json.dumps({
                 'platform': app.platformName(),
                 'visible': window.isVisible(),
@@ -61,7 +80,15 @@ def smoke_test(report_path):
             window.close()
             app.quit()
 
-        QTimer.singleShot(1000, finish)
+        def checked_finish():
+            try:
+                finish()
+            except Exception:
+                import traceback
+                Path(report_path).write_text(json.dumps({'error': traceback.format_exc()}), encoding='utf-8')
+                app.exit(1)
+
+        QTimer.singleShot(1000, checked_finish)
         return main()
 
 

@@ -6,6 +6,8 @@ import shutil
 import os
 import sys
 import argparse
+import re
+import tomllib
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
@@ -27,6 +29,24 @@ if sys.platform == 'darwin':
              '--icon', str(root/'assets'/'studio.icns')]
 if sys.platform == 'win32':
     args += ['--additional-hooks-dir', str(root/'scripts'/'pyinstaller_hooks')]
+    version = tomllib.loads((root/'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
+    match = re.match(r'^(\d+)\.(\d+)(?:\.(\d+))?(?:\.(\d+))?', version)
+    if match is None:
+        raise ValueError('Version must start with numeric major/minor components')
+    numeric = tuple(int(value or 0) for value in match.groups())
+    resource = root/'build'/'windows-version.txt'
+    resource.parent.mkdir(exist_ok=True)
+    resource.write_text(
+        'VSVersionInfo(ffi=FixedFileInfo(filevers='+repr(numeric)+', prodvers='+repr(numeric)+', '
+        'mask=0x3f, flags=0, OS=0x40004, fileType=1, subtype=0, date=(0,0)), kids=['
+        'StringFileInfo([StringTable("040904b0", ['
+        'StringStruct("FileDescription", "omsipmxtool PMX converter"), '
+        'StringStruct("FileVersion", '+repr(version)+'), '
+        'StringStruct("ProductVersion", '+repr(version)+'), '
+        'StringStruct("ProductName", "omsipmxtool"), '
+        'StringStruct("OriginalFilename", "omsipmxtool.exe")])]), '
+        'VarFileInfo([VarStruct("Translation", [1033, 1200])])])\n', encoding='utf-8')
+    args += ['--version-file', str(resource)]
 args += [str(root/'scripts'/'gui_entry.py')]
 env = dict(os.environ, PYINSTALLER_CONFIG_DIR=str(root/'build'/'pyinstaller-cache'))
 if sys.platform == 'win32':

@@ -9,11 +9,12 @@ import platform
 import shutil
 import subprocess
 import tarfile
+import tomllib
 from pathlib import Path, PurePosixPath
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.2'
+VERSION = tomllib.loads((ROOT/'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
 
 
 def digest(path):

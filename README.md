@@ -14,39 +14,16 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 快速入口：[详细使用说明](#详细使用说明) · [显示司机手臂](#在驾驶视角显示司机手臂) · [从源码运行](#从源码运行) · [版权声明](#模型版权与使用声明) · [问题反馈](#已知问题与反馈)
 
-**Windows 下载：[v0.3.2 实验版](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.2)**。下载 `omsipmxtool-0.3.2-windows-x64.zip`，完整解压后运行 `omsipmxtool.exe`；请保留同目录的 `_internal` 文件夹，无需安装 Python。程序尚未进行代码签名。
+**Windows 下载：[v0.4 实验版](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.4)**。下载 `omsipmxtool-0.4-windows-x64.zip`，完整解压后运行 `omsipmxtool.exe`；请保留同目录的 `_internal` 文件夹，无需安装 Python。程序尚未进行代码签名。
 
 ## 更新日志
 
-### 0.3.2+handfix.5 · 手部转换与特殊角色适配
+### v0.4 · 手部转换与特殊角色适配
 
 1. **调整手部转换逻辑**：如果发现手指（尤其是拇指）存在变形，可以使用新版重新转换并自行测试适配效果；如仍有异常，请向[本项目 Issues](https://github.com/splDANHENG/omsipmxtool/issues) 反馈。
 2. **新增特殊角色适配**：增加“特殊体型兼容模式”，可勾选后转换白厄 Ultra 形态等带有大型饰品的角色。目前仅使用白厄 Ultra 形态完成离线转换测试，尚不确定是否适配其他特殊角色；如有问题，请为对应角色单独提交 [Issue](https://github.com/splDANHENG/omsipmxtool/issues)。
 
 验证：119 项自动化测试通过；本次未新增游戏内验证，转换成功不代表游戏内效果已通过验收。
-
-### 0.3.2+handfix.4 · 拇指静态网格退化保护（源码）
-
-- **PMX 读取兼容**：不再因未导出的骨骼局部坐标轴中存在 NaN/无穷大而中止，改为报告警告；顶点、法线、权重和骨骼位置中的无效数值仍会被拒绝。不需要修改原始模型。
-
-- 适配前检查可见三角形边长和重合顶点接缝；仅在候选姿态严重塌缩或开缝时，按手跳过，保留该手原有顶点和法线。一般边长变化记录为警告，不单凭拉伸幅度停用适配。
-- 验收以每根手指的形状和方向为主，允许 OpenOMSI 握持造成的局部拉伸；数值检查不能代替目视验收。
-- 报告新增识别到的拇指骨骼、候选姿态的静态检查数值及 `unsafe_static_mesh_deformation` 跳过原因。
-- 此保护拦截适配引入的部分静态退化，**不代表罗刹、饮月等角色的游戏内握持已修复**。被跳过的手仍需检查原有握持问题。
-- 本轮多模型检查包含非米哈游模型；仅有静态检查和离线模拟，未完成新的游戏内验证。测试模型和对照人物包不纳入仓库。
-- 验证：101 项自动化测试通过，6 个真实模型的 12 份对照包完成 O3D 顶点、法线、索引及权重核对。
-
-### 0.3.2+handfix.3 · 手部转换优化
-
-- **修复手长计算**：优先根据模型的可见中指网格计算手部参考长度，减少按身高估算导致的握持变形。
-- **新增拇指姿态适配**：调整拇指初始姿态，改善部分角色握持时的拇指方向和拉伸问题。
-- **默认启用**：两项优化默认生效。拇指姿态适配保留关闭选项，方便处理特殊模型；命令行可使用 `--no-adapt-thumbs` 关闭。
-- **转换报告**：记录手部测量方式与拇指适配结果；无法可靠识别时保留回退或跳过提示。
-- **验证**：通过 94 项自动化测试。
-
-已有角色需要重新转换并安装。此次优化不保证消除所有游戏内握持变形。
-
-**备注：本次更新针对部分角色的手部拇指模型问题进行了专项测试，尚未覆盖所有模型，实际效果可能因模型而异。**
 
 ### v0.3.2 · 2026-10-19
 
@@ -83,7 +60,7 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 - **正式版行为范围**：读取用户选择的模型及资源，生成转换包；按用户操作安装人物并修改地图司机列表，保留恢复备份。角色库、备份和日志默认位于 `%LOCALAPPDATA%\OMSI Mod Studio`。启动游戏仅运行用户配置的游戏程序。
 - **不包含的功能**：主转换器未实现遥测上传、开机自启、关闭杀软或进程内存注入。独立的本地实验工具不包含在正式 EXE 和对应源码 ZIP 中；不要将其他工具的检测结果混同于此发布包。
-- **下载与核验**：从本项目 GitHub Release 下载，核对版本和 `SHA256SUMS.txt`。可用 PowerShell 的 `Get-FileHash .\omsipmxtool-0.3.2-windows-x64.zip -Algorithm SHA256` 核对压缩包。包内另附逐文件清单、构建信息、对应源码及依赖来源。哈希匹配只能证明文件一致，不能证明不存在漏洞或恶意行为。
+- **下载与核验**：从本项目 GitHub Release 下载，核对版本和 `SHA256SUMS.txt`。可用 PowerShell 的 `Get-FileHash .\omsipmxtool-0.4-windows-x64.zip -Algorithm SHA256` 核对压缩包。包内另附逐文件清单、构建信息、对应源码及依赖来源。哈希匹配只能证明文件一致，不能证明不存在漏洞或恶意行为。
 - **签名与检测限制**：当前 EXE 未进行数字签名；未知发布者 / 信誉提示与明确的恶意软件检测不是同一结论。测试、代码审查和单次杀毒扫描均不构成绝对安全保证，也不代表已审计全部第三方依赖。
 - **遇到告警**：先暂停使用，保留下载来源、版本、被检测文件的 SHA-256、检测名称与截图，通过[项目 Issues](https://github.com/splDANHENG/omsipmxtool/issues)反馈。不要公开私人模型、账号信息或敏感路径。维护者应核对官方文件、复现并调查；确认问题后暂停受影响版本分发、修复及公告，疑似误报向安全厂商提交复核并公开结论。
 - **保持防护开启**：不要为运行本工具关闭杀毒软件、添加整盘白名单或以管理员权限绕过告警。微软提供[文件复核入口](https://www.microsoft.com/en-us/wdsi/filesubmission)及[SmartScreen 信誉说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
@@ -117,7 +94,7 @@ omsipmxtool 是一款面向 OpenOMSI 的 PMX 人物转换工具。通过图形�
 
 ### 1. 准备软件、游戏和模型
 
-Windows 用户可从 [Release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.2) 下载 `omsipmxtool-0.3.2-windows-x64.zip`，完整解压到可写目录，双击 `omsipmxtool.exe`。不要只移动 EXE，也不要在压缩包内直接运行。当前在 Windows 10 x64 上验证，Windows 11 尚未完成实机验证。
+Windows 用户可从 [Release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.4) 下载 `omsipmxtool-0.4-windows-x64.zip`，完整解压到可写目录，双击 `omsipmxtool.exe`。不要只移动 EXE，也不要在压缩包内直接运行。当前在 Windows 10 x64 上验证，Windows 11 尚未完成实机验证。
 
 如果希望从源码运行，在 GitHub 点击 **Code → Download ZIP**，完整解压后按下方“从源码运行”安装并启动；也可使用 Git 克隆：
 

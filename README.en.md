@@ -12,39 +12,16 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 > Experimental software targeting OpenOMSI. Compatibility with the original OMSI 2 engine is not guaranteed. Results depend on the model, vehicle and game version. The application interface is currently in Chinese; this English README includes the relevant button labels.
 
-**Windows download: [v0.3.2 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.3.2)**. Download `omsipmxtool-0.3.2-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
+**Windows download: [v0.4 experimental release](https://github.com/splDANHENG/omsipmxtool/releases/tag/v0.4)**. Download `omsipmxtool-0.4-windows-x64.zip`, extract everything and run `omsipmxtool.exe`. Keep `_internal` beside the EXE. Python is not required. This build is unsigned.
 
 ## Changelog
 
-### 0.3.2+handfix.5 · Hand conversion and special-character compatibility
+### v0.4 · Hand conversion and special-character compatibility
 
 1. **Adjusted hand conversion:** if fingers, especially thumbs, appear deformed, reconvert with the updated version and test the result. Report remaining issues in [this project's Issues](https://github.com/splDANHENG/omsipmxtool/issues).
 2. **Added special-character compatibility:** enable the “特殊体型兼容模式” checkbox for characters with large accessories, such as Phainon's Ultra form. Offline conversion testing currently covers only Phainon's Ultra form; compatibility with other special characters remains unconfirmed. Please open a separate [Issue](https://github.com/splDANHENG/omsipmxtool/issues) for each affected character.
 
 Validation: 119 automated tests passed. No new in-game validation was completed; successful conversion does not establish visual quality in game.
-
-### 0.3.2+handfix.4 · Static thumb-mesh regression guard (source)
-
-- **PMX reader compatibility:** warn instead of rejecting NaN/infinite values in optional bone-local coordinate axes, which are not exported. Non-finite vertices, normals, weights and bone positions are still rejected. Original model files do not need modification.
-
-- Check visible triangle edges and coincident vertex seams before applying a pose. Skip each unsafe hand independently only for severe collapse or opening a seam. Other edge-length changes are warnings and do not disable adaptation by themselves.
-- Acceptance prioritizes each finger's shape and direction; local stretching from OpenOMSI gripping is acceptable. Measurements cannot replace visual inspection.
-- Reports include recognized thumb bones, candidate static-quality measurements and the `unsafe_static_mesh_deformation` skip reason.
-- This catches some static regressions introduced by adaptation. **It does not establish that Luocha or Yinyue grip deformation is fixed in game.** Skipped hands still need their original grip problems checked.
-- This round includes non-HoYoverse models, static inspection and offline simulation only. No new in-game validation is complete. Test models and comparison packages are kept out of the repository.
-- Validation: 101 automated tests passed. O3D vertices, normals, indices and weights were checked in 12 comparison packages from six real models.
-
-### 0.3.2+handfix.3 · Hand conversion improvements
-
-- **Fixed hand-length calculation:** prefer visible middle-finger geometry when measuring the hand reference, reducing grip deformation caused by body-height estimates.
-- **Added thumb rest-pose adaptation:** adjust the initial thumb pose to improve thumb direction and stretching for some characters during gripping.
-- **Enabled by default:** both improvements are active by default. Thumb adaptation can be disabled for models that need it, including with `--no-adapt-thumbs` on the CLI.
-- **Conversion reports:** record hand measurements and thumb adaptation results, with fallback or skip warnings when reliable identification is not possible.
-- **Validation:** 94 automated tests passed.
-
-Existing characters must be reconverted and reinstalled. These improvements do not guarantee removal of all in-game grip deformation.
-
-**Note: this update received targeted testing for thumb mesh issues in selected characters. Testing has not covered all models, and results may vary by model.**
 
 ### v0.3.2 · 2026-10-19
 
@@ -81,7 +58,7 @@ Existing characters must be reconverted and reinstalled. These improvements do n
 
 - **Scope:** the main application reads selected model resources, exports character packages and, when requested, installs characters and updates map driver lists with recovery backups. Catalogue data, backups and logs default to `%LOCALAPPDATA%\OMSI Mod Studio` on Windows. Launching the game runs the executable configured by the user.
 - **Excluded behavior:** the main converter implements no telemetry uploads, startup persistence, antivirus disabling or process-memory injection. Separate local experimental tools are not included in the official EXE or corresponding source ZIP.
-- **Verify downloads:** use this project's GitHub Releases and compare the ZIP's SHA-256 with `SHA256SUMS.txt`, e.g. `Get-FileHash .\omsipmxtool-0.3.2-windows-x64.zip -Algorithm SHA256`. Per-file manifests, build information and corresponding sources are supplied. Matching hashes prove file identity, not the absence of vulnerabilities or malware.
+- **Verify downloads:** use this project's GitHub Releases and compare the ZIP's SHA-256 with `SHA256SUMS.txt`, e.g. `Get-FileHash .\omsipmxtool-0.4-windows-x64.zip -Algorithm SHA256`. Per-file manifests, build information and corresponding sources are supplied. Matching hashes prove file identity, not the absence of vulnerabilities or malware.
 - **Limits:** the EXE is unsigned. Unknown-publisher/reputation warnings differ from malware detections. Tests, review and individual antivirus scans are not guarantees of safety or complete third-party dependency audits.
 - **Reports:** pause use and provide the download URL, version, detected file's SHA-256, detection name and screenshot in [Issues](https://github.com/splDANHENG/omsipmxtool/issues). Do not post private models, credentials or sensitive paths. Maintainers should verify and investigate; confirmed issues require stopping affected distribution, fixing and announcing the issue. Suspected false positives should be submitted to the vendor for review with the outcome disclosed.
 - **Keep protection enabled:** do not disable antivirus, whitelist entire drives or elevate privileges to bypass alerts. Microsoft provides a [file review portal](https://www.microsoft.com/en-us/wdsi/filesubmission) and [SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
