@@ -16,6 +16,11 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 ## Changelog
 
+### Local fix preview · 0.3.2+handfix.1 (unreleased)
+
+- **Fixed:** measure the HUM finger reference from visible middle-finger geometry where available, rather than estimating every hand from body height. This addresses a reference-length error that can place thumbs in an unsuitable grip-deformation region. Conversion reports record the measurement method and length, with a warning when a fallback is needed.
+- **Scope:** existing characters require reconversion. This does not preserve independent finger joints or guarantee removal of all deformation from OpenOMSI's automatic grip algorithm; in-game checks are still required.
+
 ### v0.3.2 · 2026-10-19
 
 - **Added:** local, offline generation of help prompts to copy into an AI/agent, available on the converter and character-library pages. Prompts include the version, operation, recent error and relevant guidance. Preview with paths hidden, review the text, then paste it into your chosen AI/agent for help. The application does not include or run an AI model. Generating prompts requires no API key, network requests or automatic uploads; the external AI/agent handles connectivity and data according to the service you choose.

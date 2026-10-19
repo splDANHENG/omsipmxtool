@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path, PureWindowsPath
 from .pmx import ConversionError
 from .rig import SLOTS, prepare, identify
+from .hand_reference import measure_hand_reference
+from . import __version__
 
 
 def pack(fmt, *values):
@@ -141,6 +143,13 @@ def convert(model, source, output, name, height, overrides):
         raise ConversionError('Output must not contain the source')
     joints = identify(model, overrides)
     positions, normals, weights, jp = prepare(model, joints, height)
+    hand_reference = measure_hand_reference(model, joints, positions, weights, jp, height)
+    if hand_reference['method'] == 'height_ratio_fallback':
+        model.warnings.append('Hand reference uses a height-based fallback: no reliable middle-finger geometry was found. Inspect thumb and finger grip in game.')
+    else:
+        sides = hand_reference['measured_sides']
+        if len(sides) == 2 and abs(sides['left']['length_m'] - sides['right']['length_m']) > hand_reference['length_m'] * 0.15:
+            model.warnings.append('Hand lengths differ by more than 15%; HUM shares the right-hand reference across both hands. Inspect both grips in game.')
     # Check all textures before touching the destination.
     sources = {m.texture: texture_source(source, model.textures[m.texture])
                for m in model.materials if m.texture >= 0 and m.diffuse[3] > 0}
@@ -200,18 +209,20 @@ def convert(model, source, output, name, height, overrides):
         hip, knee = world('right_thigh'), world('right_shin')
         waist, neck = world('torso'), world('neck')
         shoulder, elbow, hand = [world('right_'+r) for r in ('arm', 'elbow', 'hand')]
-        finger = (hand[0]+height*0.07, hand[1], hand[2])
+        finger = (hand[0]+hand_reference['length_m'], hand[1], hand[2])
         links = (*hip, *knee, *waist[1:], *shoulder, *elbow, *neck[1:], *hand, *finger)
         seat = max(0.01, hip[2]-height*0.057)
         hum = ['[model]', 'model\\model.cfg', '[humangeom]', f'{abs(hip[0])*2:.6f}', f'{height:.6f}',
                '[seatheight]', f'{seat:.6f}', '[links]', *[f'{v:.6f}' for v in links],
                '[walk_param]', '1.4', '66', '1', '1', '0', '[mass]', '75']
         text_file(folder/'driver.hum', hum)
-        report = {'format': 1, 'source_name': model.name, 'character': name,
+        report = {'format': 1, 'converter_version': __version__,
+                  'source_name': model.name, 'character': name,
                   'human_path': f'Humans\\{name}\\driver.hum', 'height': height,
                   'vertices': len(model.vertices), 'triangles': len(model.indices)//3,
                   'output_meshes': mesh_count,
                   'output_textures': texture_exporter.count,
+                  'hand_reference': hand_reference,
                   'weighted_vertices_by_bone': {slot: sum(w.get(i, 0) > 0 for w in weights)
                                                 for i, slot in enumerate(SLOTS)},
                   'joints': {role: model.bones[i].name for role, i in joints.items()},
