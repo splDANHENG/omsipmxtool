@@ -16,11 +16,17 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 ## Changelog
 
-### Local fix preview · 0.3.2+handfix.2 (unreleased)
+### 0.3.2+handfix.3 · Hand conversion improvements
 
-- **Fixed:** measure the HUM finger reference from visible middle-finger geometry where available, rather than estimating every hand from body height. This addresses a reference-length error that can place thumbs in an unsuitable grip-deformation region. Conversion reports record the measurement method and length, with a warning when a fallback is needed.
-- **Scope:** existing characters require reconversion. This does not preserve independent finger joints or guarantee removal of all deformation from OpenOMSI's automatic grip algorithm; in-game checks are still required.
-- **Experimental option:** enable thumb rest-pose adaptation on the converter page, or pass `--adapt-thumbs` on the CLI. Standard thumb chains under the selected wrists are rotated toward the game's flat-hand convention, blending at the palm with the original weights. Disabled by default, this changes the open-hand thumb shape; inspect both open and gripping hands. Unrecognized or ambiguous hands are skipped with a warning, and per-side results are recorded in the conversion report.
+- **Fixed hand-length calculation:** prefer visible middle-finger geometry when measuring the hand reference, reducing grip deformation caused by body-height estimates.
+- **Added thumb rest-pose adaptation:** adjust the initial thumb pose to improve thumb direction and stretching for some characters during gripping.
+- **Enabled by default:** both improvements are active by default. Thumb adaptation can be disabled for models that need it, including with `--no-adapt-thumbs` on the CLI.
+- **Conversion reports:** record hand measurements and thumb adaptation results, with fallback or skip warnings when reliable identification is not possible.
+- **Validation:** 94 automated tests passed.
+
+Existing characters must be reconverted and reinstalled. These improvements do not guarantee removal of all in-game grip deformation.
+
+**Note: this update received targeted testing for thumb mesh issues in selected characters. Testing has not covered all models, and results may vary by model.**
 
 ### v0.3.2 · 2026-10-19
 

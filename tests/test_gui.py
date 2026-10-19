@@ -44,6 +44,7 @@ class GuiTests(unittest.TestCase):
             game=Path(temp)/'游戏';(game/'maps').mkdir(parents=True);(game/'Vehicles').mkdir()
             output=game/'omsipmxtool_exports'/'moxing'
             w=Window(); w.source.setText(str(source)); w.game_root.setText(str(game))
+            self.assertTrue(w.adapt_thumbs.isChecked())
             w.auto_height.setChecked(False)
             w.auto_install.setChecked(False)
             w.inspect_button.click(); self.assertTrue(w.busy)

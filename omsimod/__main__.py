@@ -19,7 +19,7 @@ def main():
     build.add_argument('--name', default='CustomDriver')
     build.add_argument('--height', type=float, default=1.75, help='Full mesh height in metres (default 1.75)')
     build.add_argument('--mapping', type=Path, help='JSON object: semantic role -> exact PMX bone name')
-    build.add_argument('--adapt-thumbs', action='store_true', help='Experimental thumb rest-pose adaptation; changes open-hand geometry')
+    build.add_argument('--adapt-thumbs', action=argparse.BooleanOptionalAction, default=True, help='Adapt thumb rest pose (enabled by default; --no-adapt-thumbs disables it)')
     args = parser.parse_args()
     try:
         model = load(args.input)

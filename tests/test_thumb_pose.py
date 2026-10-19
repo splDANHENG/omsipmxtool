@@ -81,11 +81,11 @@ class ThumbPoseTests(unittest.TestCase):
         self.assertEqual(r['right']['status'], 'skipped')
         self.assertEqual(q, p)
 
-    def test_export_is_opt_in_and_records_pose_change(self):
+    def test_export_defaults_on_and_can_be_disabled(self):
         self.thumb()
         a, b = Path(self.temp.name)/'unchanged', Path(self.temp.name)/'adapted'
-        off = convert(self.model, self.source, a, 'Thumb', 2, {})
-        on = convert(self.model, self.source, b, 'Thumb', 2, {}, adapt_thumbs=True)
+        off = convert(self.model, self.source, a, 'Thumb', 2, {}, adapt_thumbs=False)
+        on = convert(self.model, self.source, b, 'Thumb', 2, {})
         self.assertFalse(off['thumb_rest_pose']['enabled'])
         self.assertTrue(on['thumb_rest_pose']['enabled'])
         folder = 'Humans/Thumb/model/body_0000.o3d'
@@ -96,10 +96,23 @@ class ThumbPoseTests(unittest.TestCase):
                          (b/'Humans/Thumb/driver.hum').read_bytes())
 
     def test_gui_conversion_option_reaches_export(self):
-        # The GUI and CLI share convert_model; no synthetic assets are published.
+        # Verify the GUI helper forwards the default to the exporter.
         from unittest.mock import patch
         from omsimod.gui import convert_model
         with patch('omsimod.gui.convert') as export:
             export.return_value = {}
-            convert_model(self.source, Path(self.temp.name)/'gui', 'Thumb', 2, {}, adapt_thumbs=True)
+            convert_model(self.source, Path(self.temp.name)/'gui', 'Thumb', 2, {})
             self.assertTrue(export.call_args.kwargs['adapt_thumbs'])
+
+    def test_cli_defaults_on_and_allows_opt_out(self):
+        from unittest.mock import patch
+        from omsimod.__main__ import main
+        for flags, enabled in [([], True), (['--no-adapt-thumbs'], False),
+                               (['--adapt-thumbs'], True)]:
+            with self.subTest(flags=flags), patch('sys.argv', [
+                    'omsimod', 'convert', str(self.source), '--output',
+                    str(Path(self.temp.name)/'cli'), *flags]), \
+                    patch('omsimod.__main__.convert', return_value={}) as export, \
+                    patch('builtins.print'):
+                self.assertEqual(main(), 0)
+                self.assertEqual(export.call_args.kwargs['adapt_thumbs'], enabled)

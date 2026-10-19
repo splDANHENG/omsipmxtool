@@ -63,7 +63,7 @@ def inspect_model(path):
                       for b in model.bones], 'warnings': model.warnings}
 
 
-def convert_model(source, output, name, height, mapping, *, adapt_thumbs=False):
+def convert_model(source, output, name, height, mapping, *, adapt_thumbs=True):
     overrides = dict(mapping) if isinstance(mapping, dict) else (json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
     if not isinstance(overrides, dict):
         raise ValueError('骨骼映射必须是 JSON 对象。')
@@ -78,7 +78,7 @@ def convert_model(source, output, name, height, mapping, *, adapt_thumbs=False):
     return report
 
 
-def convert_and_install(source, output, name, height, mapping, library, game_root, *, adapt_thumbs=False):
+def convert_and_install(source, output, name, height, mapping, library, game_root, *, adapt_thumbs=True):
     report = convert_model(source, output, name, height, mapping, adapt_thumbs=adapt_thumbs)
     report['installation'] = {'status': 'not_requested'}
     try:
@@ -195,8 +195,9 @@ class Window(QMainWindow):
         self.auto_height.toggled.connect(lambda enabled: self.height.setEnabled(not enabled))
         self.auto_height.toggled.connect(self.height_mode_changed)
         form.addWidget(self.auto_height)
-        self.adapt_thumbs = QCheckBox('适配拇指初始姿态（试验）')
-        self.adapt_thumbs.setToolTip('拇指仍有折叠或方向异常时尝试。会调整摊开手掌时的拇指姿态；需同时检查松手和握持效果。')
+        self.adapt_thumbs = QCheckBox('适配拇指初始姿态')
+        self.adapt_thumbs.setChecked(True)
+        self.adapt_thumbs.setToolTip('默认启用，调整拇指初始姿态以改善握持效果。若特定模型效果不合适，可取消勾选后重新转换。')
         form.addWidget(self.adapt_thumbs)
         self.height_note = QLabel('按完整网格高度 × 0.08 换算为米，包含头发和饰品；非标准比例请手动调整。')
         self.height_note.setWordWrap(True); self.height_note.setObjectName('muted'); form.addWidget(self.height_note)
