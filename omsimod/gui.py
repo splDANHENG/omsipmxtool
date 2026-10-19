@@ -63,7 +63,7 @@ def inspect_model(path):
                       for b in model.bones], 'warnings': model.warnings}
 
 
-def convert_model(source, output, name, height, mapping):
+def convert_model(source, output, name, height, mapping, *, adapt_thumbs=False):
     overrides = dict(mapping) if isinstance(mapping, dict) else (json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
     if not isinstance(overrides, dict):
         raise ValueError('骨骼映射必须是 JSON 对象。')
@@ -73,13 +73,13 @@ def convert_model(source, output, name, height, mapping):
         height = pmx_height(model)
         if not 0.5 <= height <= 3:
             raise ValueError(f'自动估算高度 {height:.3f} m 超出人物范围，请取消自动读取并手动设置模型总高度。')
-    report = convert(model, source, output, name, height, overrides)
+    report = convert(model, source, output, name, height, overrides, adapt_thumbs=adapt_thumbs)
     report['height_mode'] = 'mmd_bounds_0.08' if automatic else 'manual'
     return report
 
 
-def convert_and_install(source, output, name, height, mapping, library, game_root):
-    report = convert_model(source, output, name, height, mapping)
+def convert_and_install(source, output, name, height, mapping, library, game_root, *, adapt_thumbs=False):
+    report = convert_model(source, output, name, height, mapping, adapt_thumbs=adapt_thumbs)
     report['installation'] = {'status': 'not_requested'}
     try:
         item = library.add(output/'Humans'/report['character']/'driver.hum')
@@ -195,6 +195,9 @@ class Window(QMainWindow):
         self.auto_height.toggled.connect(lambda enabled: self.height.setEnabled(not enabled))
         self.auto_height.toggled.connect(self.height_mode_changed)
         form.addWidget(self.auto_height)
+        self.adapt_thumbs = QCheckBox('适配拇指初始姿态（试验）')
+        self.adapt_thumbs.setToolTip('拇指仍有折叠或方向异常时尝试。会调整摊开手掌时的拇指姿态；需同时检查松手和握持效果。')
+        form.addWidget(self.adapt_thumbs)
         self.height_note = QLabel('按完整网格高度 × 0.08 换算为米，包含头发和饰品；非标准比例请手动调整。')
         self.height_note.setWordWrap(True); self.height_note.setObjectName('muted'); form.addWidget(self.height_note)
         self.auto_install = QCheckBox('转换后自动安装到 OMSI（包含 HUM、模型和贴图）')
@@ -402,12 +405,14 @@ class Window(QMainWindow):
             output = export_destination(root, name)
             self.output.setText(str(output))
             height = None if self.auto_height.isChecked() else self.height.value()
+            adapt_thumbs = self.adapt_thumbs.isChecked()
             mapping = self.current_mapping()
             game_root = root if self.auto_install.isChecked() else None
             self.manager.library.settings({'root': str(root)})
         except (ValueError, OSError) as exc: self.failed(str(exc)); return
         self.pending_output = output
-        self.start(lambda: convert_and_install(source,output,name,height,mapping,self.manager.library,game_root),
+        self.start(lambda: convert_and_install(source,output,name,height,mapping,self.manager.library,game_root,
+                                              adapt_thumbs=adapt_thumbs),
                    self.converted,'正在转换并安装人物包…' if game_root else '正在转换人物包…')
 
     def converted(self, report):

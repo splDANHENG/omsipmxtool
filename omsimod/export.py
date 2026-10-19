@@ -11,6 +11,7 @@ from pathlib import Path, PureWindowsPath
 from .pmx import ConversionError
 from .rig import SLOTS, prepare, identify
 from .hand_reference import measure_hand_reference
+from .thumb_pose import adapt_thumb_pose
 from . import __version__
 
 
@@ -131,7 +132,7 @@ def character_name(value):
     return value[:48]
 
 
-def convert(model, source, output, name, height, overrides):
+def convert(model, source, output, name, height, overrides, *, adapt_thumbs=False):
     if not name or character_name(name) != name:
         raise ConversionError('角色标识须为有效文件夹名称（最多 48 字符，不含路径分隔符或 Windows 保留名称）')
     if not 0.5 <= height <= 3:
@@ -144,6 +145,13 @@ def convert(model, source, output, name, height, overrides):
     joints = identify(model, overrides)
     positions, normals, weights, jp = prepare(model, joints, height)
     hand_reference = measure_hand_reference(model, joints, positions, weights, jp, height)
+    thumb_pose = {'enabled': bool(adapt_thumbs)}
+    if adapt_thumbs:
+        positions, normals, results = adapt_thumb_pose(model, joints, positions, normals, jp)
+        thumb_pose['sides'] = results
+        model.warnings.append('Experimental thumb rest-pose adaptation changes the open-hand mesh; inspect both open and gripping hands in game.')
+        if any(result['status'] == 'skipped' for result in results.values()):
+            model.warnings.append('Thumb rest-pose adaptation skipped an unsupported or ambiguous hand; see thumb_rest_pose in the report.')
     if hand_reference['method'] == 'height_ratio_fallback':
         model.warnings.append('Hand reference uses a height-based fallback: no reliable middle-finger geometry was found. Inspect thumb and finger grip in game.')
     else:
@@ -223,6 +231,7 @@ def convert(model, source, output, name, height, overrides):
                   'output_meshes': mesh_count,
                   'output_textures': texture_exporter.count,
                   'hand_reference': hand_reference,
+                  'thumb_rest_pose': thumb_pose,
                   'weighted_vertices_by_bone': {slot: sum(w.get(i, 0) > 0 for w in weights)
                                                 for i, slot in enumerate(SLOTS)},
                   'joints': {role: model.bones[i].name for role, i in joints.items()},

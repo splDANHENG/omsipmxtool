@@ -19,6 +19,7 @@ def main():
     build.add_argument('--name', default='CustomDriver')
     build.add_argument('--height', type=float, default=1.75, help='Full mesh height in metres (default 1.75)')
     build.add_argument('--mapping', type=Path, help='JSON object: semantic role -> exact PMX bone name')
+    build.add_argument('--adapt-thumbs', action='store_true', help='Experimental thumb rest-pose adaptation; changes open-hand geometry')
     args = parser.parse_args()
     try:
         model = load(args.input)
@@ -32,7 +33,8 @@ def main():
             mapping = json.loads(args.mapping.read_text(encoding='utf-8-sig')) if args.mapping else {}
             if not isinstance(mapping, dict):
                 raise ConversionError('Mapping must be a JSON object')
-            result = convert(model, args.input, args.output, args.name, args.height, mapping)
+            result = convert(model, args.input, args.output, args.name, args.height, mapping,
+                             adapt_thumbs=args.adapt_thumbs)
         # ASCII JSON also works in legacy Windows terminals without encoding errors.
         print(json.dumps(result, ensure_ascii=True, indent=2))
         return 0

@@ -16,10 +16,11 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 ## Changelog
 
-### Local fix preview · 0.3.2+handfix.1 (unreleased)
+### Local fix preview · 0.3.2+handfix.2 (unreleased)
 
 - **Fixed:** measure the HUM finger reference from visible middle-finger geometry where available, rather than estimating every hand from body height. This addresses a reference-length error that can place thumbs in an unsuitable grip-deformation region. Conversion reports record the measurement method and length, with a warning when a fallback is needed.
 - **Scope:** existing characters require reconversion. This does not preserve independent finger joints or guarantee removal of all deformation from OpenOMSI's automatic grip algorithm; in-game checks are still required.
+- **Experimental option:** enable thumb rest-pose adaptation on the converter page, or pass `--adapt-thumbs` on the CLI. Standard thumb chains under the selected wrists are rotated toward the game's flat-hand convention, blending at the palm with the original weights. Disabled by default, this changes the open-hand thumb shape; inspect both open and gripping hands. Unrecognized or ambiguous hands are skipped with a warning, and per-side results are recorded in the conversion report.
 
 ### v0.3.2 · 2026-10-19
 
