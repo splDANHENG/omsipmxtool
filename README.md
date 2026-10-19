@@ -281,6 +281,8 @@ python3 -m venv .venv-gui
 
 不同系统的支持情况取决于 Python、Qt 和依赖版本。本次源码审查在 Windows 完成，其他系统仍需对应环境验证。
 
+Ubuntu / Debian 运行界面还需要系统图形库 `libegl1`、`libopengl0`；仅安装 Python 依赖不能代替这些系统库。Linux 的 Python 3.10 / 3.11 安装 GUI 依赖时会自动排除存在对象引用计数问题的 PySide6 6.12.0。
+
 ### macOS 使用方式（终端启动图形界面）
 
 macOS 可从源码运行，无需先打包成 `.app`。终端用于安装依赖和启动程序；启动后仍使用图形界面操作，不能直接运行 Windows 发布包中的 `.exe`。

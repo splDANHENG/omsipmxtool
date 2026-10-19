@@ -7,6 +7,9 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
         python: ['3.10', '3.13']
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
     runs-on: ${{ matrix.os }}
     env:
       QT_QPA_PLATFORM: offscreen

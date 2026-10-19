@@ -12,7 +12,12 @@ requires-python = ">=3.10"
 dependencies = ["Pillow>=10,<13", "pypinyin>=0.55,<0.56"]
 
 [project.optional-dependencies]
-gui = ["PySide6>=6.8,<7"]
+gui = [
+    "PySide6>=6.8,<7; sys_platform != 'linux' or python_version >= '3.12'",
+    # The 6.12.0 Linux wheel consumes None references on pre-3.12 CPython.
+    # Reproducer: actions/runs/39309363550 (100 QColor calls, delta=-100).
+    "PySide6>=6.8,<7,!=6.12.0; sys_platform == 'linux' and python_version < '3.12'",
+]
 
 [project.gui-scripts]
 omsipmxtool-gui = "omsimod.gui:main"

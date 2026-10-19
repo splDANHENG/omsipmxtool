@@ -256,6 +256,8 @@ python3 -m venv .venv-gui
 
 Platform support also depends on Python, Qt and dependency versions. The latest local source review was performed on Windows; other platforms require their own validation.
 
+Ubuntu / Debian also requires the system graphics libraries `libegl1` and `libopengl0` for the GUI; installing Python dependencies alone does not provide them. GUI dependency resolution on Linux with Python 3.10 / 3.11 excludes PySide6 6.12.0 because of its object reference counting issue.
+
 ### macOS usage (launch the GUI from Terminal)
 
 macOS users can run from source without first building an `.app`. Terminal is used to install dependencies and launch the graphical interface. The Windows `.exe` distribution cannot run directly on macOS.
