@@ -16,6 +16,24 @@ omsipmxtool converts PMX character models into OpenOMSI character packages, with
 
 ## Changelog
 
+### 0.3.2+handfix.5 · Hand conversion and special-character compatibility
+
+1. **Adjusted hand conversion:** if fingers, especially thumbs, appear deformed, reconvert with the updated version and test the result. Report remaining issues in [this project's Issues](https://github.com/splDANHENG/omsipmxtool/issues).
+2. **Added special-character compatibility:** enable the “特殊体型兼容模式” checkbox for characters with large accessories, such as Phainon's Ultra form. Offline conversion testing currently covers only Phainon's Ultra form; compatibility with other special characters remains unconfirmed. Please open a separate [Issue](https://github.com/splDANHENG/omsipmxtool/issues) for each affected character.
+
+Validation: 119 automated tests passed. No new in-game validation was completed; successful conversion does not establish visual quality in game.
+
+### 0.3.2+handfix.4 · Static thumb-mesh regression guard (source)
+
+- **PMX reader compatibility:** warn instead of rejecting NaN/infinite values in optional bone-local coordinate axes, which are not exported. Non-finite vertices, normals, weights and bone positions are still rejected. Original model files do not need modification.
+
+- Check visible triangle edges and coincident vertex seams before applying a pose. Skip each unsafe hand independently only for severe collapse or opening a seam. Other edge-length changes are warnings and do not disable adaptation by themselves.
+- Acceptance prioritizes each finger's shape and direction; local stretching from OpenOMSI gripping is acceptable. Measurements cannot replace visual inspection.
+- Reports include recognized thumb bones, candidate static-quality measurements and the `unsafe_static_mesh_deformation` skip reason.
+- This catches some static regressions introduced by adaptation. **It does not establish that Luocha or Yinyue grip deformation is fixed in game.** Skipped hands still need their original grip problems checked.
+- This round includes non-HoYoverse models, static inspection and offline simulation only. No new in-game validation is complete. Test models and comparison packages are kept out of the repository.
+- Validation: 101 automated tests passed. O3D vertices, normals, indices and weights were checked in 12 comparison packages from six real models.
+
 ### 0.3.2+handfix.3 · Hand conversion improvements
 
 - **Fixed hand-length calculation:** prefer visible middle-finger geometry when measuring the hand reference, reducing grip deformation caused by body-height estimates.

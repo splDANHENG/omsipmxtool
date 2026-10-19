@@ -113,7 +113,7 @@ def rotate(v, source, target):
     return tuple(v[i]*c + kv[i]*s + k[i]*dot(k, v)*(1-c) for i in range(3))
 
 
-def prepare(model, joints, height):
+def prepare(model, joints, height, *, body_bounds=None):
     positions = [b.position for b in model.bones]
     direct = {joints[s]: k for k, s in enumerate(SLOTS)}
     # Neck and its descendants follow the head; other extra bones follow nearest
@@ -205,8 +205,8 @@ def prepare(model, joints, height):
         raise ConversionError('Cannot establish left/right axis from thighs')
     sign = 1 if right[0] > left[0] else -1
     cx, cz = (right[0]+left[0])/2, (right[2]+left[2])/2
-    floor = min(v[1] for v in verts)
-    top = max(v[1] for v in verts)
+    floor, top = body_bounds if body_bounds is not None else (
+        min(v[1] for v in verts), max(v[1] for v in verts))
     if top-floor < 1e-6:
         raise ConversionError('Model has no height')
     scale = height/(top-floor)
@@ -216,6 +216,9 @@ def prepare(model, joints, height):
     verts = [transform(p) for p in verts]
     normals = [unit((n[0]*sign, n[1], n[2]*sign)) for n in normals]
     jp = {role: transform(positions[i]) for role, i in joints.items()}
-    model.warnings.append('Height uses full mesh bounds (including hair/accessories); inspect scale in game.')
+    if body_bounds is None:
+        model.warnings.append('Height uses full mesh bounds (including hair/accessories); inspect scale in game.')
+    else:
+        model.warnings.append('Special-body mode uses estimated head/foot bounds for scale and floor. All accessories are retained, including geometry below the feet; inspect size, seating and ground/vehicle intersections in game.')
     model.warnings.append('Extra bones are collapsed; asymmetry is retained in geometry, not in mirrored joint parameters.')
     return verts, normals, weights, jp

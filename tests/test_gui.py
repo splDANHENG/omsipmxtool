@@ -45,6 +45,7 @@ class GuiTests(unittest.TestCase):
             output=game/'omsipmxtool_exports'/'moxing'
             w=Window(); w.source.setText(str(source)); w.game_root.setText(str(game))
             self.assertTrue(w.adapt_thumbs.isChecked())
+            self.assertFalse(w.special_body.isChecked())
             w.auto_height.setChecked(False)
             w.auto_install.setChecked(False)
             w.inspect_button.click(); self.assertTrue(w.busy)
@@ -377,3 +378,30 @@ class GuiTests(unittest.TestCase):
             w.auto_height.setChecked(False);w.height.setValue(1.8)
             w.convert_button.click();self.wait(w)
             self.assertIn('已生成并安装',w.status.text());w.close()
+
+    def test_special_body_checkbox_reestimates_and_reaches_export(self):
+        import json
+        from test_special_body import special_fixture, serialize
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            (base/'maps').mkdir(); (base/'Vehicles').mkdir()
+            source = base/'special.pmx'
+            source.write_bytes(serialize(special_fixture()))
+            w = Window()
+            w.source.setText(str(source)); w.game_root.setText(str(base))
+            w.auto_install.setChecked(False)
+            self.assertFalse(w.special_body.isChecked())
+            w.special_body.setChecked(True); self.wait(w)
+            self.assertEqual(w.height_label.text(), '主体参考高度')
+            self.assertIn('兼容模式主体估算', w.height_note.text())
+            self.assertLess(w.height.value(), 3)
+            w.convert_button.click(); self.wait(w)
+            report = json.loads((w.last_output/'conversion-report.json').read_text(encoding='utf-8'))
+            self.assertTrue(report['special_body']['enabled'])
+            self.assertEqual(report['height_mode'], 'mmd_body_bounds_0.08')
+            self.assertEqual(report['installation']['status'], 'not_requested')
+            self.assertFalse((base/'Humans').exists())
+            w.special_body.setChecked(False); self.wait(w)
+            self.assertEqual(w.height_label.text(), '模型总高度')
+            self.assertIn('超出', w.height_note.text())
+            w.close()

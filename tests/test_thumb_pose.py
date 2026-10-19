@@ -68,6 +68,18 @@ class ThumbPoseTests(unittest.TestCase):
         self.assertAlmostEqual(q[start][1], (p[start][1] + jp['right_hand'][1]) / 2)
         self.assertNotEqual(q[start], p[start])
 
+    def test_english_and_namespaced_thumb_chains(self):
+        root, _ = self.thumb()
+        for names in [('mixamorig:RightHandThumb1', 'mixamorig:RightHandThumb2'),
+                      ('thumb_01.R', 'thumb_02.R')]:
+            with self.subTest(names=names):
+                for i, name in enumerate(names):
+                    self.model.bones[root+i].name = name
+                p, n, _, jp = self.prepared()
+                _, _, result = adapt_thumb_pose(self.model, self.joints, p, n, jp)
+                self.assertEqual(result['right']['status'], 'adapted')
+                self.assertEqual(result['right']['bones'], list(names))
+
     def test_missing_or_ambiguous_thumb_is_skipped(self):
         p, n, _, jp = self.prepared()
         q, nn, r = adapt_thumb_pose(self.model, self.joints, p, n, jp)
@@ -81,6 +93,28 @@ class ThumbPoseTests(unittest.TestCase):
         self.assertEqual(r['right']['status'], 'skipped')
         self.assertEqual(q, p)
 
+    def test_unsafe_palm_seam_keeps_original_positions_and_normals(self):
+        _, start = self.thumb()
+        _, left = self.thumb('left')
+        # Duplicate a thumb vertex at a UV/material seam, but attach the copy
+        # to the wrist. Rotating only the thumb side used to open a crack.
+        from dataclasses import replace
+        seam = len(self.model.vertices)
+        self.model.vertices.append(replace(self.model.vertices[start],
+            weights=[(self.joints['right_hand'], 1)]))
+        self.model.indices.extend([seam, start+1, start+2])
+        self.model.materials[0].count = len(self.model.indices)
+        p, n, _, jp = self.prepared()
+        q, nn, report = adapt_thumb_pose(self.model, self.joints, p, n, jp)
+        self.assertEqual(q[start:start+3], p[start:start+3])
+        self.assertEqual(nn[start:start+3], n[start:start+3])
+        self.assertNotEqual(q[left:left+3], p[left:left+3])
+        self.assertEqual(report['left']['status'], 'adapted')
+        result = report['right']
+        self.assertEqual(result['reason'], 'unsafe_static_mesh_deformation')
+        self.assertEqual(result['affected_vertices'], 0)
+        self.assertGreater(result['static_quality']['max_seam_gap_m'], 0)
+
     def test_export_defaults_on_and_can_be_disabled(self):
         self.thumb()
         a, b = Path(self.temp.name)/'unchanged', Path(self.temp.name)/'adapted'
@@ -88,9 +122,10 @@ class ThumbPoseTests(unittest.TestCase):
         on = convert(self.model, self.source, b, 'Thumb', 2, {})
         self.assertFalse(off['thumb_rest_pose']['enabled'])
         self.assertTrue(on['thumb_rest_pose']['enabled'])
-        folder = 'Humans/Thumb/model/body_0000.o3d'
-        av, _, _ = read_o3d(a/folder)
-        bv, _, _ = read_o3d(b/folder)
+        # Body groups can put the unchanged torso before the thumb meshes.
+        folder = 'Humans/Thumb/model'
+        av = [read_o3d(path)[0] for path in sorted((a/folder).glob('*.o3d'))]
+        bv = [read_o3d(path)[0] for path in sorted((b/folder).glob('*.o3d'))]
         self.assertNotEqual(av, bv)
         self.assertEqual((a/'Humans/Thumb/driver.hum').read_bytes(),
                          (b/'Humans/Thumb/driver.hum').read_bytes())

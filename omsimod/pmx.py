@@ -187,7 +187,7 @@ def load(path):
         materials.append(Material(mn, diffuse, texture, count, bool(flags & 1)))
     if sum(m.count for m in materials) != len(indices):
         raise ConversionError('Material face counts do not match geometry')
-    bones = []
+    bones, ignored_local_axes = [], []
     for _ in range(r.count()):
         bn, en, pos = r.text(), r.text(), r.read('3f')
         parent = r.index(3)
@@ -202,7 +202,13 @@ def load(path):
         if flags & 0x400:
             r.read('3f')
         if flags & 0x800:
-            r.read('6f')
+            # These optional MMD bone-local X/Z axes are not stored in Bone
+            # or used by rig preparation/export. Some PMXs put NaNs here on
+            # terminal finger bones. Consume the field without relaxing the
+            # finite checks on positions, normals, weights or other fields.
+            axes = struct.unpack('<6f', r.take(24))
+            if not all(math.isfinite(value) for value in axes):
+                ignored_local_axes.append(bn)
         if flags & 0x2000:
             r.read('i')
         if flags & 0x20:
@@ -233,5 +239,7 @@ def load(path):
         if sum(w for _, w in v.weights) <= 0:
             raise ConversionError('Vertex has no usable weights')
     warnings = ['Physics, morphs, IK, append transforms, toon, sphere maps and outlines are not exported.']
+    if ignored_local_axes:
+        warnings.append('Ignored non-finite bone-local coordinate axes (not exported): ' + ', '.join(ignored_local_axes))
     warnings += [f'{mode} approximated with linear blend skinning.' for mode in sorted(special)]
     return Model(name, vertices, indices, textures, materials, bones, warnings)

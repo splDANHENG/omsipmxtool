@@ -12,6 +12,8 @@ from .pmx import ConversionError
 from .rig import SLOTS, prepare, identify
 from .hand_reference import measure_hand_reference
 from .thumb_pose import adapt_thumb_pose
+from .special_body import measure_body_reference
+from .body_visibility import split_mesh
 from . import __version__
 
 
@@ -132,7 +134,7 @@ def character_name(value):
     return value[:48]
 
 
-def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True):
+def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True, special_body=False):
     if not name or character_name(name) != name:
         raise ConversionError('角色标识须为有效文件夹名称（最多 48 字符，不含路径分隔符或 Windows 保留名称）')
     if not 0.5 <= height <= 3:
@@ -143,7 +145,10 @@ def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True
     if output == source.resolve() or output in source.resolve().parents:
         raise ConversionError('Output must not contain the source')
     joints = identify(model, overrides)
-    positions, normals, weights, jp = prepare(model, joints, height)
+    body_reference = measure_body_reference(model, joints) if special_body else None
+    positions, normals, weights, jp = prepare(
+        model, joints, height,
+        body_bounds=(body_reference['floor_y'], body_reference['top_y']) if body_reference else None)
     hand_reference = measure_hand_reference(model, joints, positions, weights, jp, height)
     thumb_pose = {'enabled': bool(adapt_thumbs)}
     if adapt_thumbs:
@@ -151,6 +156,10 @@ def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True
         thumb_pose['sides'] = results
         if any(result['status'] == 'skipped' for result in results.values()):
             model.warnings.append('Thumb rest-pose adaptation skipped an unsupported or ambiguous hand; see thumb_rest_pose in the report.')
+        if any(result.get('reason') == 'unsafe_static_mesh_deformation' for result in results.values()):
+            model.warnings.append('Thumb adaptation would severely collapse the static mesh or open a seam. Original positions and normals were retained for that hand; its in-game grip still requires verification.')
+        if any(result.get('warning') == 'local_edge_distortion_requires_visual_check' for result in results.values()):
+            model.warnings.append('Thumb adaptation changes local edge lengths. This is diagnostic only: inspect individual finger shape and direction; local grip stretching may be acceptable.')
     if hand_reference['method'] == 'height_ratio_fallback':
         model.warnings.append('Hand reference uses a height-based fallback: no reliable middle-finger geometry was found. Inspect thumb and finger grip in game.')
     else:
@@ -169,6 +178,7 @@ def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True
         textures.mkdir()
         texture_exporter = TextureExporter(textures)
         cfg, offset, mesh_count = [], 0, 0
+        body_groups = []
         for mi, material in enumerate(model.materials):
             faces = model.indices[offset:offset+material.count]
             offset += material.count
@@ -195,20 +205,29 @@ def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True
                                 keys.append(key)
                             tri.append(local[key])
                         triangles.append(tri)
-                filename = f'body_{mesh_count:04d}.o3d'
                 data = o3d([positions[i] for i, _ in keys],
                            [tuple(-x for x in normals[i]) if back else normals[i] for i, back in keys],
                            [model.vertices[i].uv for i, _ in keys],
                            [weights[i] for i, _ in keys], triangles, (1, 1, 1, 1), tex)
-                (meshes/filename).write_bytes(data)
-                cfg += ['[mesh]', filename, '[smoothskin]']
-                for slot, bone in enumerate(SLOTS):
-                    cfg += ['[setbone]', bone, str(-2-slot)]
-                cfg += ['[matl]', tex, '0', '[matl_alpha]', str(alpha_mode), '']
-                mesh_count += 1
+                # Every newly converted character supports the same runtime tool.
+                # Group whole faces so hiding a part cannot stretch boundary faces.
+                for mask, grouped in split_mesh(data):
+                    filename = f'body_{mesh_count:04d}.o3d'
+                    (meshes/filename).write_bytes(grouped)
+                    cfg += ['[mesh]', filename, '[smoothskin]']
+                    for slot, bone in enumerate(SLOTS):
+                        cfg += ['[setbone]', bone, str(-2-slot)]
+                    cfg += ['[matl]', tex, '0', '[matl_alpha]', str(alpha_mode), '']
+                    body_groups.append({'file': filename, 'parts': mask,
+                                        'sha256': hashlib.sha256(grouped).hexdigest()})
+                    mesh_count += 1
         if not mesh_count:
             raise ConversionError('No visible geometry in the default material state')
         text_file(meshes/'model.cfg', cfg)
+        (folder/'bodytoggle.json').write_text(json.dumps({
+            'format': 2, 'automatic': True, 'meshes': body_groups,
+            'policy': 'Show each triangle only when all of its dominant-weight parts are selected.'
+        }, indent=2), encoding='utf-8')
         # O3D x/y/z = right/up/forward; .hum = right/forward/up.
         def world(role):
             x, y, z = jp[role]
@@ -228,9 +247,14 @@ def convert(model, source, output, name, height, overrides, *, adapt_thumbs=True
                   'human_path': f'Humans\\{name}\\driver.hum', 'height': height,
                   'vertices': len(model.vertices), 'triangles': len(model.indices)//3,
                   'output_meshes': mesh_count,
+                  'body_visibility': {'format': 2, 'automatic': True, 'groups': mesh_count},
                   'output_textures': texture_exporter.count,
                   'hand_reference': hand_reference,
                   'thumb_rest_pose': thumb_pose,
+                  'special_body': {'enabled': bool(special_body),
+                                   'body_reference': body_reference,
+                                   'geometry_cropped': False,
+                                   'output_mesh_height_m': max(p[1] for p in positions) - min(p[1] for p in positions)},
                   'weighted_vertices_by_bone': {slot: sum(w.get(i, 0) > 0 for w in weights)
                                                 for i, slot in enumerate(SLOTS)},
                   'joints': {role: model.bones[i].name for role, i in joints.items()},

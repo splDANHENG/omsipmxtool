@@ -8,6 +8,7 @@ asset adaptation, not an implementation of the game's grip-deformation code.
 import math
 import re
 from .rig import norm, unit, sub, dot, cross, rotate, length
+from .hand_quality import thumb_mesh_quality
 
 
 def _thumb_name(name, side):
@@ -81,6 +82,7 @@ def adapt_thumb_pose(model, joints, positions, normals, joint_positions):
                          for k in range(3))
 
         count = 0
+        candidate, candidate_normals = list(out), list(out_normals)
         for i, vertex in enumerate(model.vertices):
             total = sum(w for _, w in vertex.weights if w > 0)
             influence = sum(w for b, w in vertex.weights if b in thumb and w > 0) / total
@@ -88,11 +90,25 @@ def adapt_thumb_pose(model, joints, positions, normals, joint_positions):
                 continue
             old = positions[i]
             q = turn(sub(old, pivot))
-            out[i] = tuple(old[k] + influence * (pivot[k] + q[k] - old[k]) for k in range(3))
+            candidate[i] = tuple(old[k] + influence * (pivot[k] + q[k] - old[k]) for k in range(3))
             n, rotated = normals[i], turn(normals[i])
             blended = tuple(n[k] + influence * (rotated[k] - n[k]) for k in range(3))
-            out_normals[i] = unit(blended)
+            candidate_normals[i] = unit(blended)
             count += 1
-        results[side] = {'status': 'adapted' if count else 'skipped',
-                         'rotation_degrees': math.degrees(angle), 'affected_vertices': count}
+        quality = thumb_mesh_quality(model, out, candidate,
+                                     length(sub(wrist, joint_positions[side + '_elbow'])))
+        result = {'status': 'adapted' if count else 'skipped',
+                  'rotation_degrees': math.degrees(angle), 'affected_vertices': count,
+                  'static_quality': quality,
+                  'bones': [model.bones[i].name for i in sorted(thumb)]}
+        if not count:
+            result['reason'] = 'no_thumb_vertex_weights'
+        elif not quality['safe']:
+            result.update(status='skipped', reason='unsafe_static_mesh_deformation',
+                          affected_vertices=0, candidate_vertices=count)
+        else:
+            out, out_normals = candidate, candidate_normals
+            if quality['distorted_edges']:
+                result['warning'] = 'local_edge_distortion_requires_visual_check'
+        results[side] = result
     return out, out_normals, results

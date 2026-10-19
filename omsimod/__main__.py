@@ -20,6 +20,7 @@ def main():
     build.add_argument('--height', type=float, default=1.75, help='Full mesh height in metres (default 1.75)')
     build.add_argument('--mapping', type=Path, help='JSON object: semantic role -> exact PMX bone name')
     build.add_argument('--adapt-thumbs', action=argparse.BooleanOptionalAction, default=True, help='Adapt thumb rest pose (enabled by default; --no-adapt-thumbs disables it)')
+    build.add_argument('--special-body', action='store_true', help='Use humanoid head/foot bounds for --height and floor; keep large accessories')
     args = parser.parse_args()
     try:
         model = load(args.input)
@@ -34,7 +35,7 @@ def main():
             if not isinstance(mapping, dict):
                 raise ConversionError('Mapping must be a JSON object')
             result = convert(model, args.input, args.output, args.name, args.height, mapping,
-                             adapt_thumbs=args.adapt_thumbs)
+                             adapt_thumbs=args.adapt_thumbs, special_body=args.special_body)
         # ASCII JSON also works in legacy Windows terminals without encoding errors.
         print(json.dumps(result, ensure_ascii=True, indent=2))
         return 0

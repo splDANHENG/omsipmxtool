@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omsipmxtool"
-version = "0.3.2+handfix.3"
+version = "0.3.2+handfix.5"
 description = "Experimental cross-platform PMX to OpenOMSI character converter"
 license = "AGPL-3.0-only AND GPL-3.0-or-later"
 license-files = ["LICENSE", "LICENSES/*", "THIRD-PARTY-NOTICES.txt"]

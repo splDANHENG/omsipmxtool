@@ -14,6 +14,9 @@ from .pmx import load, read_metadata
 from .model_notice import ModelNotice
 from .naming import pinyin_name
 from .export import convert, character_name
+from .rig import identify
+from .special_body import measure_body_reference
+from . import __version__
 from .ai_help import make_help_button
 
 
@@ -55,31 +58,43 @@ class Work(QRunnable):
             self.events.failed.emit(str(exc))
 
 
-def inspect_model(path):
+def inspect_model(path, *, special_body=False, mapping=None):
     model = load(path)
-    return {'name': model.name, 'estimated_height': pmx_height(model), 'vertices': len(model.vertices),
+    estimate = pmx_height(model)
+    if special_body:
+        overrides = dict(mapping) if isinstance(mapping, dict) else (
+            json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
+        if not isinstance(overrides, dict):
+            raise ValueError('骨骼映射必须是 JSON 对象。')
+        estimate = measure_body_reference(model, identify(model, overrides))['height_units'] * .08
+    return {'name': model.name, 'estimated_height': estimate,
+            'full_mesh_estimated_height': pmx_height(model), 'special_body': bool(special_body),
+            'vertices': len(model.vertices),
             'triangles': len(model.indices)//3, 'materials': len(model.materials),
             'bones': [{'name': b.name, 'english': b.english, 'parent': b.parent}
                       for b in model.bones], 'warnings': model.warnings}
 
 
-def convert_model(source, output, name, height, mapping, *, adapt_thumbs=True):
+def convert_model(source, output, name, height, mapping, *, adapt_thumbs=True, special_body=False):
     overrides = dict(mapping) if isinstance(mapping, dict) else (json.loads(mapping.read_text(encoding='utf-8-sig')) if mapping else {})
     if not isinstance(overrides, dict):
         raise ValueError('骨骼映射必须是 JSON 对象。')
     model = load(source)
     automatic = height is None
     if automatic:
-        height = pmx_height(model)
+        height = (measure_body_reference(model, identify(model, overrides))['height_units'] * .08
+                  if special_body else pmx_height(model))
         if not 0.5 <= height <= 3:
             raise ValueError(f'自动估算高度 {height:.3f} m 超出人物范围，请取消自动读取并手动设置模型总高度。')
-    report = convert(model, source, output, name, height, overrides, adapt_thumbs=adapt_thumbs)
-    report['height_mode'] = 'mmd_bounds_0.08' if automatic else 'manual'
+    report = convert(model, source, output, name, height, overrides,
+                     adapt_thumbs=adapt_thumbs, special_body=special_body)
+    report['height_mode'] = ('mmd_body_bounds_0.08' if special_body else 'mmd_bounds_0.08') if automatic else 'manual'
     return report
 
 
-def convert_and_install(source, output, name, height, mapping, library, game_root, *, adapt_thumbs=True):
-    report = convert_model(source, output, name, height, mapping, adapt_thumbs=adapt_thumbs)
+def convert_and_install(source, output, name, height, mapping, library, game_root, *, adapt_thumbs=True, special_body=False):
+    report = convert_model(source, output, name, height, mapping,
+                           adapt_thumbs=adapt_thumbs, special_body=special_body)
     report['installation'] = {'status': 'not_requested'}
     try:
         item = library.add(output/'Humans'/report['character']/'driver.hum')
@@ -133,7 +148,7 @@ QToolTip { color: #101720; background: #e3eef7; }
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('omsipmxtool · PMX 转换器')
+        self.setWindowTitle(f'omsipmxtool · PMX 转换器 · {__version__}')
         self.resize(940, 810)
         self.setMinimumSize(760, 700)
         self.pool = QThreadPool(self)
@@ -188,13 +203,19 @@ class Window(QMainWindow):
         row = QHBoxLayout()
         self.name = QLineEdit('CustomDriver'); self.name.setToolTip('从 PMX 文件名自动生成拼音标识，可手动修改；中文转拼音，英文和数字保留')
         self.height = QDoubleSpinBox(); self.height.setRange(.5,3); self.height.setValue(1.75); self.height.setSingleStep(.05); self.height.setSuffix(' m'); self.height.setDecimals(2)
-        row.addWidget(self.name,1); row.addWidget(QLabel('模型总高度')); row.addWidget(self.height)
+        self.height_label = QLabel('模型总高度')
+        row.addWidget(self.name,1); row.addWidget(self.height_label); row.addWidget(self.height)
         fields.addRow('角色标识',row); form.addLayout(fields)
         self.auto_height = QCheckBox('从 PMX 自动估算高度（可取消后手动调整）')
         self.auto_height.setChecked(True); self.height.setEnabled(False)
         self.auto_height.toggled.connect(lambda enabled: self.height.setEnabled(not enabled))
         self.auto_height.toggled.connect(self.height_mode_changed)
         form.addWidget(self.auto_height)
+        self.special_body = QCheckBox('特殊体型兼容模式（大翼 / 光环 / 长衣摆）')
+        self.special_body.setObjectName('special_body_mode')
+        self.special_body.setToolTip('适用于标准人体骨架。按头部和脚部估算主体高度并保留大型饰品；仍需检查游戏中的座位和穿插。')
+        self.special_body.toggled.connect(self.special_body_changed)
+        form.addWidget(self.special_body)
         self.adapt_thumbs = QCheckBox('适配拇指初始姿态')
         self.adapt_thumbs.setChecked(True)
         self.adapt_thumbs.setToolTip('默认启用，调整拇指初始姿态以改善握持效果。若特定模型效果不合适，可取消勾选后重新转换。')
@@ -251,7 +272,8 @@ class Window(QMainWindow):
         self.mapping.clear()
         self.mapping_path_changed()
         self.name.setText(pinyin_name(Path(text).stem))
-        self.height_note.setText('等待读取 PMX 高度；按完整网格 × 0.08 换算，包含头发和饰品。')
+        self.height_note.setText('等待读取主体参考高度；大型饰品将完整保留。' if self.special_body.isChecked() else
+                                 '等待读取 PMX 高度；按完整网格 × 0.08 换算，包含头发和饰品。')
 
     def update_output(self, *_):
         try:
@@ -268,6 +290,13 @@ class Window(QMainWindow):
         if enabled:
             self.inspected_source = None
             self.inspect_source_if_needed()
+
+    def special_body_changed(self, enabled):
+        self.height_label.setText('主体参考高度' if enabled else '模型总高度')
+        self.height_note.setText('兼容模式：按头部 / 脚部估算主体高度，完整保留大型饰品。' if enabled else
+                                 '按完整网格高度 × 0.08 换算为米，包含头发和饰品。')
+        self.inspected_source = None
+        self.inspect_source_if_needed()
 
     def pick_mapping(self):
         path,_ = QFileDialog.getOpenFileName(self,'选择骨骼映射','','JSON (*.json)')
@@ -378,15 +407,21 @@ class Window(QMainWindow):
         try:
             source = self.source_path()
             if not self.review_source(source): return
+            special_body = self.special_body.isChecked()
+            mapping = self.current_mapping()
         except (ValueError, OSError) as exc: self.failed(str(exc)); return
-        self.start(lambda: inspect_model(source), self.inspected, '正在读取模型与骨骼…')
+        self.start(lambda: inspect_model(source, special_body=special_body, mapping=mapping),
+                   self.inspected, '正在读取模型与骨骼…')
 
     def inspected(self, result):
         self.inspected_source = self.source.text()
         estimate = result['estimated_height']
         if 0.5 <= estimate <= 3:
             if self.auto_height.isChecked(): self.height.setValue(estimate)
-            self.height_note.setText(f'PMX 完整网格估算：{estimate:.3f} m（含头发 / 饰品，按 0.08 换算；可手动调整）。')
+            if result.get('special_body'):
+                self.height_note.setText(f"兼容模式主体估算：{estimate:.3f} m；完整网格约 {result['full_mesh_estimated_height']:.3f} m。大型饰品保留，可手动调整主体参考高度。")
+            else:
+                self.height_note.setText(f'PMX 完整网格估算：{estimate:.3f} m（含头发 / 饰品，按 0.08 换算；可手动调整）。')
         else:
             self.height_note.setText(f'估算高度 {estimate:.3f} m 超出 0.5–3 m，请取消自动读取并手动设置。')
         self.finish(); self.status.setText('模型读取完成 · '+result['name'])
@@ -407,13 +442,14 @@ class Window(QMainWindow):
             self.output.setText(str(output))
             height = None if self.auto_height.isChecked() else self.height.value()
             adapt_thumbs = self.adapt_thumbs.isChecked()
+            special_body = self.special_body.isChecked()
             mapping = self.current_mapping()
             game_root = root if self.auto_install.isChecked() else None
             self.manager.library.settings({'root': str(root)})
         except (ValueError, OSError) as exc: self.failed(str(exc)); return
         self.pending_output = output
         self.start(lambda: convert_and_install(source,output,name,height,mapping,self.manager.library,game_root,
-                                              adapt_thumbs=adapt_thumbs),
+                                              adapt_thumbs=adapt_thumbs, special_body=special_body),
                    self.converted,'正在转换并安装人物包…' if game_root else '正在转换人物包…')
 
     def converted(self, report):
@@ -421,13 +457,17 @@ class Window(QMainWindow):
         if report.get('height_mode') == 'mmd_bounds_0.08':
             self.height.setValue(report['height'])
             self.height_note.setText(f"本次自动使用模型总高度：{report['height']:.3f} m（完整网格 × 0.08）。")
+        elif report.get('height_mode') == 'mmd_body_bounds_0.08':
+            self.height.setValue(report['height'])
+            full = report['special_body']['output_mesh_height_m']
+            self.height_note.setText(f"兼容模式主体参考高度：{report['height']:.3f} m；保留饰品后总高度约 {full:.3f} m。请在游戏中检查占位和穿插。")
         self.manager.refresh()
         if report.get('library_id'):self.manager.select_item(report['library_id'])
         self.finish()
         installation=report['installation']
         if installation['status']=='installed':
             self.status.setText('人物包已生成并安装到 OMSI')
-            self.summary.setText('已安装：'+installation['hum']+'\n在“角色库与游戏”点击“一键应用全部车辆”即可启用。')
+            self.summary.setText('已安装：'+installation['hum']+'\n已自动支持身体部位显示。在“角色库与游戏”点击“一键应用全部车辆”即可启用。')
         elif installation['status']=='failed':
             self.help_operation = '人物包已生成，安装或入库失败'
             self.help_error = installation['error']
